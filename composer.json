@@ -1,0 +1,31 @@
+{
+  "name": "mwangaben/laravel-nats-server",
+  "description": "NATS broadcaster for Laravel with Laravel Echo compatibility",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Mwangaben\\NatsBroadcaster\\": "src/"
+    }
+  },
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^10.0|^11.0|^12.0",
+    "basis-company/nats": "^1.0",
+    "ext-json": "*",
+    "ext-openssl": "*"
+  },
+  "suggest": {
+    "ext-rdkafka": "For Kafka support with NATS JetStream",
+    "ext-protobuf": "For Protocol Buffers support"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Mwangaben\\NatsBroadcaster\\NatsServiceProvider"
+      ]
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
