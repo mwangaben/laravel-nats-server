@@ -15,19 +15,15 @@ class Connection
     private $sid = 0;
     private $subscriptions = [];
     private $pongs = [];
-    private $timeout = 2.0;
+    private $timeout = 5.0;
     private $verbose = false;
     private $pedantic = false;
-    private $name = 'php-client';
+    private $name = 'php-nats-client';
     private $lang = 'php';
     private $version = '1.0.0';
-    private $tls = false;
-    private $tlsOptions = [];
-    private $pingInterval = 120; // seconds
-    private $maxPingsOut = 2;
-    private $pingsOut = 0;
-    private $lastPing = 0;
-    private $lastActivity = 0;
+    private $serverInfo = null;
+    private $debug = false;
+    private $pendingData = '';
 
     public function __construct(string $host = 'localhost', int $port = 4222)
     {
@@ -72,63 +68,76 @@ class Connection
         return $this;
     }
 
-    public function setTls(bool $tls, array $options = []): self
+    public function setDebug(bool $debug): self
     {
-        $this->tls = $tls;
-        $this->tlsOptions = $options;
+        $this->debug = $debug;
         return $this;
+    }
+
+    private function log(string $message): void
+    {
+        if ($this->debug) {
+            error_log("[NATS] $message");
+        }
     }
 
     public function connect(): void
     {
+        $this->log("Connecting to {$this->host}:{$this->port}");
+
         $address = "tcp://{$this->host}:{$this->port}";
 
-        // Add SSL context if TLS is enabled
-        $context = null;
-        if ($this->tls) {
-            $context = stream_context_create([
-                'ssl' => array_merge([
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed' => true,
-                ], $this->tlsOptions)
-            ]);
-        }
-
-        $this->socket = stream_socket_client(
+        $this->socket = @stream_socket_client(
             $address,
             $errno,
             $errstr,
-            $this->timeout,
-            STREAM_CLIENT_CONNECT,
-            $context
+            $this->timeout
         );
 
         if (!$this->socket) {
-            throw new NatsException("Connection failed to {$this->host}:{$this->port}: $errstr ($errno)");
+            throw new NatsException("Connection failed: $errstr ($errno)");
         }
 
-        // Set non-blocking mode and timeout
-        stream_set_blocking($this->socket, false);
-        stream_set_timeout($this->socket, 0, 100000); // 100ms timeout
+        $this->log("Socket created successfully");
 
-        // Read server INFO line
-        $infoLine = $this->readLine();
-        if ($infoLine === false || $infoLine === '') {
-            throw new NatsException("Failed to read server info");
+        // Use blocking mode for initial handshake
+        stream_set_blocking($this->socket, true);
+        stream_set_timeout($this->socket, (int)ceil($this->timeout));
+
+        // Read the INFO line - server sends this immediately
+        $infoLine = fgets($this->socket);
+
+        if ($infoLine === false) {
+            $meta = stream_get_meta_data($this->socket);
+            if ($meta['timed_out']) {
+                throw new NatsException("Timeout waiting for server INFO");
+            }
+            throw new NatsException("Failed to read server INFO");
         }
 
-        // Parse server info (starts with "INFO ")
+        $infoLine = rtrim($infoLine, "\r\n");
+        $this->log("Received: $infoLine");
+
+        // Parse INFO message
         if (strpos($infoLine, 'INFO ') === 0) {
             $infoJson = substr($infoLine, 5);
-            $info = json_decode($infoJson, true);
-            if ($info === null) {
-                throw new NatsException("Invalid server info JSON");
+            $this->serverInfo = json_decode($infoJson, true);
+            if ($this->serverInfo === null) {
+                throw new NatsException("Invalid JSON in server INFO");
             }
+
+            // Check if auth is required
+            if (($this->serverInfo['auth_required'] ?? false) && !$this->user && !$this->token) {
+                throw new NatsException("Server requires authentication");
+            }
+
+            $this->log("Server INFO parsed successfully");
+        } else {
+            throw new NatsException("Expected INFO message");
         }
 
-        // Build CONNECT command
-        $connectOptions = [
+        // Build CONNECT message
+        $connectOpts = [
             'verbose' => $this->verbose,
             'pedantic' => $this->pedantic,
             'lang' => $this->lang,
@@ -136,65 +145,54 @@ class Connection
             'name' => $this->name,
         ];
 
-        // Add authentication if provided
+        // Add authentication
         if ($this->token) {
-            $connectOptions['auth_token'] = $this->token;
+            $connectOpts['auth_token'] = $this->token;
         } elseif ($this->user && $this->password) {
-            $connectOptions['user'] = $this->user;
-            $connectOptions['pass'] = $this->password;
+            $connectOpts['user'] = $this->user;
+            $connectOpts['pass'] = $this->password;
         }
 
-        $connectCmd = "CONNECT " . json_encode($connectOptions) . "\r\n";
-        $this->send($connectCmd);
+        $connectMsg = "CONNECT " . json_encode($connectOpts) . "\r\n";
+        $this->log("Sending CONNECT");
+
+        $written = fwrite($this->socket, $connectMsg);
+        if ($written === false || $written !== strlen($connectMsg)) {
+            throw new NatsException("Failed to send CONNECT");
+        }
+
+        // Switch to non-blocking for normal operations
+        stream_set_blocking($this->socket, false);
+        stream_set_timeout($this->socket, 0, 100000); // 100ms
 
         $this->connected = true;
-        $this->lastActivity = microtime(true);
-        $this->lastPing = $this->lastActivity;
+        $this->log("Connection established");
 
-        // Flush any pending data
-        $this->flush();
-    }
-
-    public function flush(?float $timeout = null): void
-    {
-        $start = microtime(true);
-        $timeout = $timeout ?? $this->timeout;
-
-        while ($this->isConnected()) {
-            $line = $this->readLine();
-            if ($line === false || $line === '') {
-                if ((microtime(true) - $start) >= $timeout) {
-                    break;
-                }
-                usleep(1000); // 1ms
-                continue;
-            }
-
-            $this->processLine($line);
-
-            // Check for PONG or OK
-            if (strpos($line, 'PONG') === 0 || strpos($line, '+OK') === 0) {
-                break;
-            }
-
-            if ((microtime(true) - $start) >= $timeout) {
-                break;
-            }
-        }
+        // Read any immediate response (PING or +OK)
+        $this->processBuffer();
     }
 
     public function publish(string $subject, string $payload = '', ?string $reply = null): void
     {
+        if (!$this->isConnected()) {
+            throw new NatsException("Not connected");
+        }
+
         $msg = "PUB $subject";
         if ($reply) {
             $msg .= " $reply";
         }
         $msg .= " " . strlen($payload) . "\r\n" . $payload . "\r\n";
+
         $this->send($msg);
     }
 
     public function subscribe(string $subject, callable $callback, ?string $queue = null): string
     {
+        if (!$this->isConnected()) {
+            throw new NatsException("Not connected");
+        }
+
         $this->sid++;
         $sid = (string)$this->sid;
 
@@ -235,7 +233,7 @@ class Connection
         }
     }
 
-    public function request(string $subject, string $data, callable $callback, ?float $timeout = 1.0): string
+    public function request(string $subject, string $data, callable $callback, float $timeout = 2.0): string
     {
         $inbox = "_INBOX." . bin2hex(random_bytes(16));
         $sid = $this->subscribe($inbox, function($msg) use ($callback, $inbox) {
@@ -245,84 +243,50 @@ class Connection
 
         $this->publish($subject, $data, $inbox);
 
-        if ($timeout > 0) {
-            $this->waitForResponse($inbox, $timeout);
+        // Wait for response
+        $start = microtime(true);
+        while ((microtime(true) - $start) < $timeout) {
+            $this->wait(0.1);
+
+            // Check if we still have the subscription (means we haven't received response)
+            if (!isset($this->subscriptions[$inbox])) {
+                break;
+            }
+        }
+
+        // Clean up if still subscribed
+        if (isset($this->subscriptions[$inbox])) {
+            $this->unsubscribe($inbox);
         }
 
         return $inbox;
     }
 
-    public function wait(?int $maxMessages = null, ?float $timeout = null): void
+    public function wait(?float $timeout = null): void
     {
+        if (!$this->isConnected()) {
+            return;
+        }
+
         $start = microtime(true);
-        $messagesProcessed = 0;
         $timeout = $timeout ?? $this->timeout;
 
         while (true) {
-            // Check ping interval
-            $now = microtime(true);
-            if (($now - $this->lastPing) >= $this->pingInterval) {
-                $this->ping();
-                $this->lastPing = $now;
-                $this->pingsOut++;
+            $this->processBuffer();
 
-                if ($this->pingsOut > $this->maxPingsOut) {
-                    $this->close();
-                    throw new NatsException("No PONG response, connection lost");
-                }
-            }
-
-            $line = $this->readLine();
-            if ($line === false || $line === '') {
-                if ((microtime(true) - $start) >= $timeout) {
-                    break;
-                }
-                usleep(1000); // 1ms
-                continue;
-            }
-
-            $this->lastActivity = microtime(true);
-            $this->processLine($line);
-            $messagesProcessed++;
-
-            // Reset pingsOut on any activity
-            $this->pingsOut = 0;
-
-            if ($maxMessages !== null && $messagesProcessed >= $maxMessages) {
-                break;
-            }
-
+            // Check timeout
             if ((microtime(true) - $start) >= $timeout) {
                 break;
             }
+
+            // Small sleep to prevent CPU spinning
+            usleep(1000); // 1ms
         }
     }
 
-    private function waitForResponse(string $inbox, float $timeout): void
+    public function flush(?float $timeout = 1.0): void
     {
-        $start = microtime(true);
-
-        while (true) {
-            $line = $this->readLine();
-            if ($line === false || $line === '') {
-                if ((microtime(true) - $start) >= $timeout) {
-                    throw new NatsException("Request timeout for inbox: $inbox");
-                }
-                usleep(1000);
-                continue;
-            }
-
-            $this->processLine($line);
-
-            // Check if we've received the response
-            if (!isset($this->subscriptions[$inbox])) {
-                break;
-            }
-
-            if ((microtime(true) - $start) >= $timeout) {
-                throw new NatsException("Request timeout for inbox: $inbox");
-            }
-        }
+        $this->wait($timeout);
     }
 
     public function ping(): void
@@ -350,70 +314,54 @@ class Connection
         return $this->connected && $this->socket && !feof($this->socket);
     }
 
-    public function getServerInfo(): ?array
-    {
-        // This would be populated from the initial INFO message
-        return $this->serverInfo ?? null;
-    }
-
     private function send(string $data): void
     {
         if (!$this->isConnected()) {
-            throw new NatsException("Not connected to NATS server");
+            throw new NatsException("Not connected");
         }
 
-        $written = fwrite($this->socket, $data);
-        if ($written === false || $written !== strlen($data)) {
-            $this->close();
-            throw new NatsException("Failed to write to NATS server");
-        }
-    }
+        $total = strlen($data);
+        $sent = 0;
 
-    private function readLine(): string
-    {
-        if (!$this->isConnected()) {
-            return '';
-        }
-
-        $line = fgets($this->socket);
-        if ($line === false) {
-            // Check if it's just a timeout
-            $meta = stream_get_meta_data($this->socket);
-            if ($meta['timed_out']) {
-                return '';
-            }
-            $this->close();
-            throw new NatsException("Failed to read from NATS server");
-        }
-
-        return rtrim($line, "\r\n");
-    }
-
-    private function readBytes(int $bytes): string
-    {
-        $data = '';
-        $remaining = $bytes;
-
-        while ($remaining > 0) {
-            $chunk = fread($this->socket, $remaining);
+        while ($sent < $total) {
+            $chunk = fwrite($this->socket, substr($data, $sent));
             if ($chunk === false) {
                 $this->close();
-                throw new NatsException("Failed to read from NATS server");
+                throw new NatsException("Write failed");
             }
-            if (strlen($chunk) === 0) {
-                // No data available
-                usleep(1000);
-                continue;
-            }
-            $data .= $chunk;
-            $remaining -= strlen($chunk);
+            $sent += $chunk;
+        }
+    }
+
+    private function processBuffer(): void
+    {
+        if (!$this->isConnected()) {
+            return;
         }
 
-        return $data;
+        // Read available data
+        $data = fread($this->socket, 8192);
+        if ($data === false || $data === '') {
+            return;
+        }
+
+        $this->pendingData .= $data;
+
+        // Process complete lines
+        while (($pos = strpos($this->pendingData, "\r\n")) !== false) {
+            $line = substr($this->pendingData, 0, $pos);
+            $this->pendingData = substr($this->pendingData, $pos + 2);
+
+            if ($line !== '') {
+                $this->processLine($line);
+            }
+        }
     }
 
     private function processLine(string $line): void
     {
+        $this->log("Processing line: $line");
+
         if (strpos($line, 'PING') === 0) {
             $this->pong();
             return;
@@ -430,10 +378,9 @@ class Connection
         }
 
         if (strpos($line, '-ERR') === 0) {
-            error_log("NATS server error: $line");
-            // Parse error if needed
+            $this->log("Server error: $line");
             if (preg_match('/-ERR\s+\'(.+)\'/', $line, $matches)) {
-                throw new NatsException("NATS server error: " . $matches[1]);
+                throw new NatsException("Server error: " . $matches[1]);
             }
             return;
         }
@@ -442,20 +389,13 @@ class Connection
             $this->processMsg($line);
             return;
         }
-
-        // Handle INFO messages (during reconnection)
-        if (strpos($line, 'INFO ') === 0) {
-            $infoJson = substr($line, 5);
-            $this->serverInfo = json_decode($infoJson, true);
-            return;
-        }
     }
 
     private function processMsg(string $line): void
     {
         $parts = explode(' ', $line);
         if (count($parts) < 4) {
-            error_log("Invalid MSG format: $line");
+            $this->log("Invalid MSG format: $line");
             return;
         }
 
@@ -472,11 +412,8 @@ class Connection
             $bytes = (int)$parts[3];
         }
 
-        // Read payload
-        $payload = $this->readBytes($bytes);
-
-        // Read trailing \r\n
-        $this->readBytes(2);
+        // Read payload (may need to wait for it)
+        $payload = $this->readPayload($bytes);
 
         if (isset($this->subscriptions[$sid])) {
             $msg = new Message($subject, $payload, $replyTo, $sid);
@@ -484,10 +421,37 @@ class Connection
             try {
                 $callback($msg);
             } catch (\Exception $e) {
-                error_log("Error in subscription callback: " . $e->getMessage());
+                $this->log("Callback error: " . $e->getMessage());
             }
             $this->subscriptions[$sid]['received']++;
         }
+    }
+
+    private function readPayload(int $bytes): string
+    {
+        $payload = '';
+
+        while (strlen($payload) < $bytes) {
+            // Check if we have enough data in buffer
+            $needed = $bytes - strlen($payload);
+            if (strlen($this->pendingData) >= $needed + 2) { // +2 for \r\n
+                $payload .= substr($this->pendingData, 0, $needed);
+                $this->pendingData = substr($this->pendingData, $needed + 2); // Skip payload and \r\n
+                break;
+            }
+
+            // Read more data
+            $data = fread($this->socket, 8192);
+            if ($data === false || $data === '') {
+                // Try non-blocking read
+                usleep(1000);
+                continue;
+            }
+
+            $this->pendingData .= $data;
+        }
+
+        return $payload;
     }
 
     public function __destruct()
