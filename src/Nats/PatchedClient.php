@@ -1,5 +1,4 @@
 <?php
-// src/Nats/PatchedClient.php
 
 namespace Mwangaben\NatsBroadcaster\Nats;
 
@@ -14,6 +13,8 @@ class PatchedClient
     private $connected = false;
     private $debug = false;
     private $timeout = 5;
+    private $subscriptions = [];
+    private $shouldStop = false;
 
     public function __construct(array $config = [])
     {
@@ -127,32 +128,90 @@ class PatchedClient
 
         $this->write($cmd);
 
-        // Simple subscription handling
-        $this->handleMessages($subject, $callback);
+        // Store subscription
+        $this->subscriptions[$sid] = [
+            'subject' => $subject,
+            'callback' => $callback,
+            'queue' => $queue,
+        ];
+
+        // Start listening in background if not already
+        $this->startListener();
 
         return $sid;
     }
 
-    private function handleMessages(string $subject, callable $callback): void
+    public function unsubscribe(string $sid): void
     {
-        // This is a simplified message handler
-        // In a real implementation, you'd need proper message parsing
-        while ($this->connected) {
-            $line = $this->readLine();
-            if ($line && strpos($line, 'MSG') === 0) {
-                // Parse MSG line: MSG <subject> <sid> [reply-to] <#bytes>
-                $parts = explode(' ', $line);
-                if (count($parts) >= 4) {
-                    $bytes = (int)end($parts);
-                    $payload = $this->readBytes($bytes + 2); // +2 for \r\n
-                    $callback([
-                        'subject' => $parts[1],
-                        'sid' => $parts[2],
-                        'payload' => substr($payload, 0, -2), // Remove \r\n
-                    ]);
+        if (isset($this->subscriptions[$sid])) {
+            $this->write("UNSUB {$sid}\r\n");
+            unset($this->subscriptions[$sid]);
+        }
+    }
+
+    private function startListener(): void
+    {
+        static $listenerStarted = false;
+
+        if ($listenerStarted || empty($this->subscriptions)) {
+            return;
+        }
+
+        $listenerStarted = true;
+
+        // Simple message listener
+        while ($this->connected && !$this->shouldStop && !empty($this->subscriptions)) {
+            $this->processMessages();
+            usleep(100000); // 100ms
+        }
+
+        $listenerStarted = false;
+    }
+
+    private function processMessages(): void
+    {
+        $line = $this->readLine();
+
+        if (!$line) {
+            return;
+        }
+
+        if (strpos($line, 'MSG') === 0) {
+            // Parse MSG line: MSG <subject> <sid> [reply-to] <#bytes>
+            $parts = explode(' ', $line);
+
+            if (count($parts) >= 4) {
+                $subject = $parts[1];
+                $sid = $parts[2];
+                $bytesIndex = count($parts) - 1;
+                $bytes = (int)$parts[$bytesIndex];
+
+                // Read payload
+                $payload = $this->readBytes($bytes + 2); // +2 for \r\n
+                $payload = substr($payload, 0, -2); // Remove \r\n
+
+                // Find subscription by SID
+                if (isset($this->subscriptions[$sid])) {
+                    $callback = $this->subscriptions[$sid]['callback'];
+                    try {
+                        $callback([
+                            'subject' => $subject,
+                            'sid' => $sid,
+                            'payload' => $payload,
+                            'body' => $payload, // Alias for compatibility
+                        ]);
+                    } catch (\Exception $e) {
+                        if ($this->debug) {
+                            error_log("[NATS] Callback error: " . $e->getMessage());
+                        }
+                    }
                 }
-            } elseif ($line && strpos($line, 'PING') === 0) {
-                $this->write("PONG\r\n");
+            }
+        } elseif (strpos($line, 'PING') === 0) {
+            $this->write("PONG\r\n");
+        } elseif (strpos($line, '-ERR') === 0) {
+            if ($this->debug) {
+                error_log("[NATS] Server error: {$line}");
             }
         }
     }
@@ -174,7 +233,7 @@ class PatchedClient
         while (true) {
             $char = fgetc($this->socket);
             if ($char === false) {
-                if ((microtime(true) - $start) > $this->timeout) {
+                if ((microtime(true) - $start) > 0.1) { // 100ms timeout for reading
                     break;
                 }
                 usleep(1000);
@@ -203,7 +262,7 @@ class PatchedClient
         while ($remaining > 0) {
             $chunk = fread($this->socket, $remaining);
             if ($chunk === false) {
-                if ((microtime(true) - $start) > $this->timeout) {
+                if ((microtime(true) - $start) > 0.1) { // 100ms timeout
                     break;
                 }
                 usleep(1000);
@@ -219,6 +278,9 @@ class PatchedClient
 
     public function close(): void
     {
+        $this->shouldStop = true;
+        $this->subscriptions = [];
+
         if ($this->socket) {
             fclose($this->socket);
             $this->socket = null;

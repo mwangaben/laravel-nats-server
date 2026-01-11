@@ -2,10 +2,7 @@
 
 namespace Mwangaben\NatsBroadcaster\Broadcasters;
 
-//use Nats\Client;
-//use Nats\ConnectionOptions;
 use Mwangaben\NatsBroadcaster\Nats\PatchedClient;
-
 use Illuminate\Broadcasting\Broadcasters\Broadcaster;
 use Illuminate\Broadcasting\Broadcasters\UsePusherChannelConventions;
 use Illuminate\Support\Arr;
@@ -28,40 +25,7 @@ class NatsBroadcaster extends Broadcaster
         $this->config = $config;
         $this->debug = $config['debug'] ?? false;
 
-        // Create connection options
-//        $options = new ConnectionOptions();
-//        $options->setHost($config['host'] ?? 'localhost');
-//        $options->setPort($config['port'] ?? 4222);
-//
-//        if (isset($config['user']) && isset($config['pass'])) {
-//            $options->setUser($config['user']);
-//            $options->setPass($config['pass']);
-//        }
-//
-//        if (isset($config['token'])) {
-//            $options->setToken($config['token']);
-//        }
-//
-//        $options->setReconnect($config['reconnect'] ?? true);
-//        $options->setTimeout($config['timeout'] ?? 5);
-//        $options->setVerbose($this->debug);
-//
-//        // TLS Configuration
-//        if ($config['tls'] ?? false) {
-//            $options->setSecure(true);
-//            if (isset($config['tls_cert'])) {
-//                $options->setCertFile($config['tls_cert']);
-//            }
-//            if (isset($config['tls_key'])) {
-//                $options->setKeyFile($config['tls_key']);
-//            }
-//            if (isset($config['tls_ca'])) {
-//                $options->setCaFile($config['tls_ca']);
-//            }
-//        }
-//
-//        $this->client = new Client($options);
-
+        // Create patched client
         $clientConfig = [
             'host' => $config['host'] ?? 'localhost',
             'port' => $config['port'] ?? 4222,
@@ -175,9 +139,12 @@ class NatsBroadcaster extends Broadcaster
             try {
                 $this->client->publish($subject, json_encode($message));
             } catch (Exception $e) {
-                report($e);
+                // Try to report if available
+                if (function_exists('report')) {
+                    report($e);
+                }
 
-                if ($this->debug) {
+                if ($this->debug && class_exists('Log')) {
                     \Log::error('NATS Broadcast failed', [
                         'error' => $e->getMessage(),
                         'subject' => $subject
@@ -189,7 +156,9 @@ class NatsBroadcaster extends Broadcaster
                     $this->reconnect();
                     $this->client->publish($subject, json_encode($message));
                 } catch (Exception $retryException) {
-                    report($retryException);
+                    if (function_exists('report')) {
+                        report($retryException);
+                    }
                 }
             }
         }
@@ -201,23 +170,198 @@ class NatsBroadcaster extends Broadcaster
             $channel = $channel->name();
         }
 
-        // Add prefix if configured
-        $prefix = $this->config['prefix'] ?? '';
-        if ($prefix) {
-            $channel = $prefix . '.' . $channel;
+        $subject = $channel;
+        $channelType = null;
+
+        // Determine channel type and strip Laravel prefix
+        if (str_starts_with($subject, 'private-encrypted-')) {
+            $channelType = 'private.encrypted.';
+            $subject = substr($subject, strlen('private-encrypted-'));
+        } elseif (str_starts_with($subject, 'private-')) {
+            $channelType = 'private.';
+            $subject = substr($subject, strlen('private-'));
+        } elseif (str_starts_with($subject, 'presence-')) {
+            $channelType = 'presence.';
+            $subject = substr($subject, strlen('presence-'));
         }
 
-        // Convert Laravel channel format to NATS subject format
-        // Replace dots with hyphens for NATS subject hierarchy
-        $subject = str_replace(
-            ['.', 'private-', 'presence-', 'private-encrypted-'],
-            ['-', 'private.', 'presence.', 'private.encrypted.'],
-            $channel
-        );
+        // Convert dots to hyphens for NATS subject hierarchy
+        $subject = str_replace('.', '-', $subject);
+
+        // Add channel type back if it was a special channel
+        if ($channelType !== null) {
+            $subject = $channelType . $subject;
+        }
 
         return $subject;
     }
 
+//    protected function getSubjectFromChannel($channel): string
+//    {
+//        if (is_object($channel) && method_exists($channel, 'name')) {
+//            $channel = $channel->name();
+//        }
+//
+//        $subject = $channel;
+//        $channelType = null;
+//
+//        // Determine channel type and strip prefix
+//        if (str_starts_with($subject, 'private-encrypted-')) {
+//            $channelType = 'private.encrypted.';
+//            $subject = substr($subject, strlen('private-encrypted-'));
+//        } elseif (str_starts_with($subject, 'private-')) {
+//            $channelType = 'private.';
+//            $subject = substr($subject, strlen('private-'));
+//        } elseif (str_starts_with($subject, 'presence-')) {
+//            $channelType = 'presence.';
+//            $subject = substr($subject, strlen('presence-'));
+//        }
+//        // Note: No handling for 'public-' because public channels have no prefix in Laravel
+//
+//        // Convert dots to hyphens for NATS subject hierarchy
+//        $subject = str_replace('.', '-', $subject);
+//
+//        // Add channel type back if it was a special channel
+//        if ($channelType !== null) {
+//            $subject = $channelType . $subject;
+//        }
+//
+//        // Add application prefix for non-special channels
+//        $prefix = $this->config['prefix'] ?? '';
+//        if ($prefix && $channelType === null) {
+//            // Skip prefix if the first part of the subject already matches the prefix
+//            $firstPart = explode('-', $subject)[0];
+//            if (strtolower($firstPart) !== strtolower($prefix) && !str_starts_with($subject, $prefix . '.')) {
+//                $subject = $prefix . '.' . $subject;
+//            }
+//        }
+//
+//        return $subject;
+//    }
+
+//    protected function getSubjectFromChannel($channel): string
+//    {
+//        if (is_object($channel) && method_exists($channel, 'name')) {
+//            $channel = $channel->name();
+//        }
+//
+//        // First, handle the special channel prefixes
+//        $subject = $channel;
+//
+//        // Check for private-encrypted- first (longest match)
+//        if (str_starts_with($subject, 'private-encrypted-')) {
+//            $subject = 'private.encrypted.' . substr($subject, strlen('private-encrypted-'));
+//        }
+//        // Then check for private-
+//        elseif (str_starts_with($subject, 'private-')) {
+//            $subject = 'private.' . substr($subject, strlen('private-'));
+//        }
+//        // Then check for presence-
+//        elseif (str_starts_with($subject, 'presence-')) {
+//            $subject = 'presence.' . substr($subject, strlen('presence-'));
+//        }
+//
+//        // Now convert dots to hyphens (for NATS subject hierarchy)
+//        // But only if we haven't already processed it as a special channel
+//        if ($subject === $channel) {
+//            // No special prefix was found, just convert dots to hyphens
+//            $subject = str_replace('.', '-', $subject);
+//        } else {
+//            // Special channel found - convert dots to hyphens in the rest of the subject
+//            // Find where the channel type ends (after 'private.', 'presence.', or 'private.encrypted.')
+//            if (str_starts_with($subject, 'private.encrypted.')) {
+//                $prefix = 'private.encrypted.';
+//            } elseif (str_starts_with($subject, 'private.')) {
+//                $prefix = 'private.';
+//            } else { // presence.
+//                $prefix = 'presence.';
+//            }
+//
+//            $rest = substr($subject, strlen($prefix));
+//            $rest = str_replace('.', '-', $rest);
+//            $subject = $prefix . $rest;
+//        }
+//
+//        // Add prefix if configured (AFTER all conversions)
+//        $prefix = $this->config['prefix'] ?? '';
+//        if ($prefix && !empty($subject)) {
+//            // Check if it's already a special channel type
+//            $specialTypes = ['private.', 'presence.', 'private.encrypted.'];
+//            $isSpecialChannel = false;
+//            foreach ($specialTypes as $type) {
+//                if (str_starts_with($subject, $type)) {
+//                    $isSpecialChannel = true;
+//                    break;
+//                }
+//            }
+//
+//            // Only add prefix to non-special channels
+//            if (!$isSpecialChannel && !str_starts_with($subject, $prefix . '.')) {
+//                $subject = $prefix . '.' . $subject;
+//            }
+//        }
+//
+//        return $subject;
+//    }
+
+//    protected function getSubjectFromChannel($channel): string
+//    {
+//        if (is_object($channel) && method_exists($channel, 'name')) {
+//            $channel = $channel->name();
+//        }
+//
+//        // Convert Laravel channel format to NATS subject format
+//        // Replace dots with hyphens for NATS subject hierarchy
+//        $subject = str_replace(
+//            ['.', 'private-', 'presence-', 'private-encrypted-'],
+//            ['-', 'private.', 'presence.', 'private.encrypted.'],
+//            $channel
+//        );
+//
+//        // Add prefix if configured (AFTER conversion)
+//        $prefix = $this->config['prefix'] ?? '';
+//        if ($prefix && !str_starts_with($subject, $prefix . '.')) {
+//            // Check if it's already a special channel type
+//            $specialTypes = ['private.', 'presence.', 'private.encrypted.'];
+//            $isSpecialChannel = false;
+//            foreach ($specialTypes as $type) {
+//                if (str_starts_with($subject, $type)) {
+//                    $isSpecialChannel = true;
+//                    break;
+//                }
+//            }
+//
+//            if (!$isSpecialChannel) {
+//                $subject = $prefix . '.' . $subject;
+//            }
+//        }
+//
+//        return $subject;
+//    }
+
+//    protected function getSubjectFromChannel($channel): string
+//    {
+//        if (is_object($channel) && method_exists($channel, 'name')) {
+//            $channel = $channel->name();
+//        }
+//
+//        // Add prefix if configured
+//        $prefix = $this->config['prefix'] ?? '';
+//        if ($prefix) {
+//            $channel = $prefix . '.' . $channel;
+//        }
+//
+//        // Convert Laravel channel format to NATS subject format
+//        // Replace dots with hyphens for NATS subject hierarchy
+//        $subject = str_replace(
+//            ['.', 'private-', 'presence-', 'private-encrypted-'],
+//            ['-', 'private.', 'presence.', 'private.encrypted.'],
+//            $channel
+//        );
+//
+//        return $subject;
+//    }
+//
     public function connect(): void
     {
         try {
@@ -228,9 +372,11 @@ class NatsBroadcaster extends Broadcaster
                 \Log::info('NATS Connected successfully');
             }
         } catch (Exception $e) {
-            report($e);
+            if (function_exists('report')) {
+                report($e);
+            }
 
-            if ($this->debug) {
+            if ($this->debug && class_exists('Log')) {
                 \Log::error('NATS Connection failed', ['error' => $e->getMessage()]);
             }
 
@@ -277,29 +423,33 @@ class NatsBroadcaster extends Broadcaster
         }
 
         try {
-            $subscription = $this->client->subscribe($subject, function ($message) use ($handler) {
+            // Note: The patched client handles subscriptions differently
+            // You might need to update the PatchedClient to support this interface
+            $this->client->subscribe($subject, function ($message) use ($handler, $subject) {
                 try {
-                    $data = json_decode($message->getBody(), true);
+                    $data = json_decode($message['payload'] ?? $message, true);
                     $handler($data);
                 } catch (Exception $e) {
-                    if ($this->debug) {
+                    if ($this->debug && class_exists('Log')) {
                         \Log::error('NATS Message handler error', [
                             'error' => $e->getMessage(),
-                            'subject' => $message->getSubject()
+                            'subject' => $subject
                         ]);
                     }
                 }
             });
 
-            $this->subscriptions[$subject] = $subscription;
+            $this->subscriptions[$subject] = true;
 
-            if ($this->debug) {
+            if ($this->debug && class_exists('Log')) {
                 \Log::info('NATS Subscribed to subject', ['subject' => $subject]);
             }
         } catch (Exception $e) {
-            report($e);
+            if (function_exists('report')) {
+                report($e);
+            }
 
-            if ($this->debug) {
+            if ($this->debug && class_exists('Log')) {
                 \Log::error('NATS Subscription failed', [
                     'error' => $e->getMessage(),
                     'subject' => $subject
@@ -312,10 +462,10 @@ class NatsBroadcaster extends Broadcaster
     {
         if (isset($this->subscriptions[$subject])) {
             try {
-                $this->client->unsubscribe($this->subscriptions[$subject]);
+                // The patched client might need an unsubscribe method
                 unset($this->subscriptions[$subject]);
 
-                if ($this->debug) {
+                if ($this->debug && class_exists('Log')) {
                     \Log::info('NATS Unsubscribed from subject', ['subject' => $subject]);
                 }
             } catch (Exception $e) {
