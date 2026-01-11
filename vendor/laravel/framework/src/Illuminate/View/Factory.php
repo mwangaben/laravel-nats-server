@@ -91,25 +91,12 @@ class Factory implements FactoryContract
     protected $renderedOnce = [];
 
     /**
-     * The cached array of engines for paths.
-     *
-     * @var array
-     */
-    protected $pathEngineCache = [];
-
-    /**
-     * The cache of normalized names for views.
-     *
-     * @var array
-     */
-    protected $normalizedNameCache = [];
-
-    /**
      * Create a new view factory instance.
      *
      * @param  \Illuminate\View\Engines\EngineResolver  $engines
      * @param  \Illuminate\View\ViewFinderInterface  $finder
      * @param  \Illuminate\Contracts\Events\Dispatcher  $events
+     * @return void
      */
     public function __construct(EngineResolver $engines, ViewFinderInterface $finder, Dispatcher $events)
     {
@@ -245,8 +232,8 @@ class Factory implements FactoryContract
         // with "raw|" for convenience and to let this know that it is a string.
         else {
             $result = str_starts_with($empty, 'raw|')
-                ? substr($empty, 4)
-                : $this->make($empty)->render();
+                        ? substr($empty, 4)
+                        : $this->make($empty)->render();
         }
 
         return $result;
@@ -260,7 +247,7 @@ class Factory implements FactoryContract
      */
     protected function normalizeName($name)
     {
-        return $this->normalizedNameCache[$name] ??= ViewName::normalize($name);
+        return ViewName::normalize($name);
     }
 
     /**
@@ -314,17 +301,13 @@ class Factory implements FactoryContract
      */
     public function getEngineFromPath($path)
     {
-        if (isset($this->pathEngineCache[$path])) {
-            return $this->engines->resolve($this->pathEngineCache[$path]);
-        }
-
         if (! $extension = $this->getExtension($path)) {
             throw new InvalidArgumentException("Unrecognized extension in file: {$path}.");
         }
 
-        return $this->engines->resolve(
-            $this->pathEngineCache[$path] = $this->extensions[$extension]
-        );
+        $engine = $this->extensions[$extension];
+
+        return $this->engines->resolve($engine);
     }
 
     /**
@@ -346,7 +329,7 @@ class Factory implements FactoryContract
      * Add a piece of shared data to the environment.
      *
      * @param  array|string  $key
-     * @param  mixed  $value
+     * @param  mixed|null  $value
      * @return mixed
      */
     public function share($key, $value = null)
@@ -424,17 +407,6 @@ class Factory implements FactoryContract
     }
 
     /**
-     * Prepend a location to the array of view locations.
-     *
-     * @param  string  $location
-     * @return void
-     */
-    public function prependLocation($location)
-    {
-        $this->finder->prependLocation($location);
-    }
-
-    /**
      * Add a new namespace to the loader.
      *
      * @param  string  $namespace
@@ -495,8 +467,6 @@ class Factory implements FactoryContract
         unset($this->extensions[$extension]);
 
         $this->extensions = array_merge([$extension => $engine], $this->extensions);
-
-        $this->pathEngineCache = [];
     }
 
     /**

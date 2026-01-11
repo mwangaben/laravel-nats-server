@@ -3,6 +3,8 @@
 namespace Mwangaben\NatsBroadcaster;
 
 use Mwangaben\NatsBroadcaster\Broadcasters\NatsBroadcaster;
+use Nats\Client;
+use Nats\ConnectionOptions;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Support\ServiceProvider as BaseServiceProvider;
 use Mwangaben\NatsBroadcaster\Console\Commands\InstallCommand;
@@ -60,9 +62,39 @@ class NatsServiceProvider extends BaseServiceProvider
 
         $this->app->singleton('nats.connection', function ($app) {
             $config = $app['config']['broadcasting.connections.nats'];
-            return new \Basis\Nats\Client(
-                new \Basis\Nats\Configuration($config)
-            );
+
+            $options = new ConnectionOptions();
+            $options->setHost($config['host'] ?? 'localhost');
+            $options->setPort($config['port'] ?? 4222);
+
+            if (isset($config['user']) && isset($config['pass'])) {
+                $options->setUser($config['user']);
+                $options->setPass($config['pass']);
+            }
+
+            if (isset($config['token'])) {
+                $options->setToken($config['token']);
+            }
+
+            $options->setReconnect($config['reconnect'] ?? true);
+            $options->setTimeout($config['timeout'] ?? 5);
+            $options->setVerbose($config['verbose'] ?? false);
+
+            // TLS Configuration
+            if ($config['tls'] ?? false) {
+                $options->setSecure(true);
+                if (isset($config['tls_cert'])) {
+                    $options->setCertFile($config['tls_cert']);
+                }
+                if (isset($config['tls_key'])) {
+                    $options->setKeyFile($config['tls_key']);
+                }
+                if (isset($config['tls_ca'])) {
+                    $options->setCaFile($config['tls_ca']);
+                }
+            }
+
+            return new Client($options);
         });
     }
 }

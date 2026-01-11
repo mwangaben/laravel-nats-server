@@ -2,9 +2,9 @@
 
 namespace Illuminate\Validation;
 
-use Illuminate\Contracts\Validation\CompilableRules;
+use Illuminate\Support\Arr;
 
-class NestedRules implements CompilableRules
+class NestedRules
 {
     /**
      * The callback to execute.
@@ -17,6 +17,7 @@ class NestedRules implements CompilableRules
      * Create a new nested rule instance.
      *
      * @param  callable  $callback
+     * @return void
      */
     public function __construct(callable $callback)
     {
@@ -29,13 +30,28 @@ class NestedRules implements CompilableRules
      * @param  string  $attribute
      * @param  mixed  $value
      * @param  mixed  $data
-     * @param  mixed  $context
      * @return \stdClass
      */
-    public function compile($attribute, $value, $data = null, $context = null)
+    public function compile($attribute, $value, $data = null)
     {
-        $rules = call_user_func($this->callback, $value, $attribute, $data, $context);
+        $rules = call_user_func($this->callback, $value, $attribute, $data);
 
-        return Rule::compile($attribute, $rules, $data);
+        $parser = new ValidationRuleParser(
+            Arr::undot(Arr::wrap($data))
+        );
+
+        if (is_array($rules) && ! array_is_list($rules)) {
+            $nested = [];
+
+            foreach ($rules as $key => $rule) {
+                $nested[$attribute.'.'.$key] = $rule;
+            }
+
+            $rules = $nested;
+        } else {
+            $rules = [$attribute => $rules];
+        }
+
+        return $parser->explode(ValidationRuleParser::filterConditionalRules($rules, $data));
     }
 }

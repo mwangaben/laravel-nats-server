@@ -28,6 +28,7 @@ class PasswordBrokerManager implements FactoryContract
      * Create a new PasswordBroker manager instance.
      *
      * @param  \Illuminate\Contracts\Foundation\Application  $app
+     * @return void
      */
     public function __construct($app)
     {
@@ -68,9 +69,7 @@ class PasswordBrokerManager implements FactoryContract
         // aggregate service of sorts providing a convenient interface for resets.
         return new PasswordBroker(
             $this->createTokenRepository($config),
-            $this->app['auth']->createUserProvider($config['provider'] ?? null),
-            $this->app['events'] ?? null,
-            timeboxDuration: $this->app['config']->get('auth.timebox_duration', 200000),
+            $this->app['auth']->createUserProvider($config['provider'] ?? null)
         );
     }
 
@@ -88,23 +87,15 @@ class PasswordBrokerManager implements FactoryContract
             $key = base64_decode(substr($key, 7));
         }
 
-        if (isset($config['driver']) && $config['driver'] === 'cache') {
-            return new CacheTokenRepository(
-                $this->app['cache']->store($config['store'] ?? null),
-                $this->app['hash'],
-                $key,
-                ($config['expire'] ?? 60) * 60,
-                $config['throttle'] ?? 0,
-            );
-        }
+        $connection = $config['connection'] ?? null;
 
         return new DatabaseTokenRepository(
-            $this->app['db']->connection($config['connection'] ?? null),
+            $this->app['db']->connection($connection),
             $this->app['hash'],
             $config['table'],
             $key,
-            ($config['expire'] ?? 60) * 60,
-            $config['throttle'] ?? 0,
+            $config['expire'],
+            $config['throttle'] ?? 0
         );
     }
 

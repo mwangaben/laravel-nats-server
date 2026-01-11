@@ -5,18 +5,17 @@ namespace Illuminate\Support;
 use Carbon\Carbon as BaseCarbon;
 use Carbon\CarbonImmutable as BaseCarbonImmutable;
 use Illuminate\Support\Traits\Conditionable;
-use Illuminate\Support\Traits\Dumpable;
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\Uid\Ulid;
 
 class Carbon extends BaseCarbon
 {
-    use Conditionable, Dumpable;
+    use Conditionable;
 
     /**
      * {@inheritdoc}
      */
-    public static function setTestNow(mixed $testNow = null): void
+    public static function setTestNow($testNow = null)
     {
         BaseCarbon::setTestNow($testNow);
         BaseCarbonImmutable::setTestNow($testNow);
@@ -24,8 +23,11 @@ class Carbon extends BaseCarbon
 
     /**
      * Create a Carbon instance from a given ordered UUID or ULID.
+     *
+     * @param  \Ramsey\Uuid\Uuid|\Symfony\Component\Uid\Ulid|string  $id
+     * @return \Illuminate\Support\Carbon
      */
-    public static function createFromId(Uuid|Ulid|string $id): static
+    public static function createFromId($id)
     {
         if (is_string($id)) {
             $id = Ulid::isValid($id) ? Ulid::fromString($id) : Uuid::fromString($id);
@@ -35,40 +37,25 @@ class Carbon extends BaseCarbon
     }
 
     /**
-     * Get the current date / time plus a given amount of time.
+     * Dump the instance and end the script.
+     *
+     * @param  mixed  ...$args
+     * @return never
      */
-    public function plus(
-        int $years = 0,
-        int $months = 0,
-        int $weeks = 0,
-        int $days = 0,
-        int $hours = 0,
-        int $minutes = 0,
-        int $seconds = 0,
-        int $microseconds = 0
-    ): static {
-        return $this->add("
-            $years years $months months $weeks weeks $days days
-            $hours hours $minutes minutes $seconds seconds $microseconds microseconds
-        ");
+    public function dd(...$args)
+    {
+        dd($this, ...$args);
     }
 
     /**
-     * Get the current date / time minus a given amount of time.
+     * Dump the instance.
+     *
+     * @return $this
      */
-    public function minus(
-        int $years = 0,
-        int $months = 0,
-        int $weeks = 0,
-        int $days = 0,
-        int $hours = 0,
-        int $minutes = 0,
-        int $seconds = 0,
-        int $microseconds = 0
-    ): static {
-        return $this->sub("
-            $years years $months months $weeks weeks $days days
-            $hours hours $minutes minutes $seconds seconds $microseconds microseconds
-        ");
+    public function dump()
+    {
+        dump($this);
+
+        return $this;
     }
 }

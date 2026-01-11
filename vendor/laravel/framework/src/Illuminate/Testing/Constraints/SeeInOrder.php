@@ -25,6 +25,7 @@ class SeeInOrder extends Constraint
      * Create a new constraint instance.
      *
      * @param  string  $content
+     * @return void
      */
     public function __construct($content)
     {
@@ -39,8 +40,6 @@ class SeeInOrder extends Constraint
      */
     public function matches($values): bool
     {
-        $decodedContent = html_entity_decode($this->content, ENT_QUOTES, 'UTF-8');
-
         $position = 0;
 
         foreach ($values as $value) {
@@ -48,9 +47,7 @@ class SeeInOrder extends Constraint
                 continue;
             }
 
-            $decodedValue = html_entity_decode($value, ENT_QUOTES, 'UTF-8');
-
-            $valuePosition = mb_strpos($decodedContent, $decodedValue, $position);
+            $valuePosition = mb_strpos($this->content, $value, $position);
 
             if ($valuePosition === false || $valuePosition < $position) {
                 $this->failedValue = $value;
@@ -58,7 +55,7 @@ class SeeInOrder extends Constraint
                 return false;
             }
 
-            $position = $valuePosition + mb_strlen($decodedValue);
+            $position = $valuePosition + mb_strlen($value);
         }
 
         return true;

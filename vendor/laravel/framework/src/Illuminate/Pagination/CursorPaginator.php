@@ -11,18 +11,6 @@ use Illuminate\Support\Collection;
 use IteratorAggregate;
 use JsonSerializable;
 
-/**
- * @template TKey of array-key
- *
- * @template-covariant TValue
- *
- * @extends AbstractCursorPaginator<TKey, TValue>
- *
- * @implements Arrayable<TKey, TValue>
- * @implements ArrayAccess<TKey, TValue>
- * @implements IteratorAggregate<TKey, TValue>
- * @implements PaginatorContract<TKey, TValue>
- */
 class CursorPaginator extends AbstractCursorPaginator implements Arrayable, ArrayAccess, Countable, IteratorAggregate, Jsonable, JsonSerializable, PaginatorContract
 {
     /**
@@ -35,10 +23,11 @@ class CursorPaginator extends AbstractCursorPaginator implements Arrayable, Arra
     /**
      * Create a new paginator instance.
      *
-     * @param  Collection<TKey, TValue>|Arrayable<TKey, TValue>|iterable<TKey, TValue>|null  $items
+     * @param  mixed  $items
      * @param  int  $perPage
      * @param  \Illuminate\Pagination\Cursor|null  $cursor
      * @param  array  $options  (path, query, fragment, pageName)
+     * @return void
      */
     public function __construct($items, $perPage, $cursor = null, array $options = [])
     {
@@ -58,12 +47,12 @@ class CursorPaginator extends AbstractCursorPaginator implements Arrayable, Arra
     /**
      * Set the items for the paginator.
      *
-     * @param  Collection<TKey, TValue>|Arrayable<TKey, TValue>|iterable<TKey, TValue>|null  $items
+     * @param  mixed  $items
      * @return void
      */
     protected function setItems($items)
     {
-        $this->items = $items instanceof Collection ? $items : new Collection($items);
+        $this->items = $items instanceof Collection ? $items : Collection::make($items);
 
         $this->hasMore = $this->items->count() > $this->perPage;
 
@@ -179,17 +168,5 @@ class CursorPaginator extends AbstractCursorPaginator implements Arrayable, Arra
     public function toJson($options = 0)
     {
         return json_encode($this->jsonSerialize(), $options);
-    }
-
-    /**
-     * Convert the object to pretty print formatted JSON.
-     *
-     * @params int $options
-     *
-     * @return string
-     */
-    public function toPrettyJson(int $options = 0)
-    {
-        return $this->toJson(JSON_PRETTY_PRINT | $options);
     }
 }

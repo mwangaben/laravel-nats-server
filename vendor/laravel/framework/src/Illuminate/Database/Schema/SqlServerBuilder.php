@@ -2,10 +2,34 @@
 
 namespace Illuminate\Database\Schema;
 
-use Illuminate\Support\Arr;
-
 class SqlServerBuilder extends Builder
 {
+    /**
+     * Create a database in the schema.
+     *
+     * @param  string  $name
+     * @return bool
+     */
+    public function createDatabase($name)
+    {
+        return $this->connection->statement(
+            $this->grammar->compileCreateDatabase($name, $this->connection)
+        );
+    }
+
+    /**
+     * Drop a database from the schema if the database exists.
+     *
+     * @param  string  $name
+     * @return bool
+     */
+    public function dropDatabaseIfExists($name)
+    {
+        return $this->connection->statement(
+            $this->grammar->compileDropDatabaseIfExists($name)
+        );
+    }
+
     /**
      * Drop all tables from the database.
      *
@@ -29,12 +53,30 @@ class SqlServerBuilder extends Builder
     }
 
     /**
-     * Get the default schema name for the connection.
+     * Drop all tables from the database.
      *
-     * @return string|null
+     * @deprecated Will be removed in a future Laravel version.
+     *
+     * @return array
      */
-    public function getCurrentSchemaName()
+    public function getAllTables()
     {
-        return Arr::first($this->getSchemas(), fn ($schema) => $schema['default'])['name'];
+        return $this->connection->select(
+            $this->grammar->compileGetAllTables()
+        );
+    }
+
+    /**
+     * Get all of the view names for the database.
+     *
+     * @deprecated Will be removed in a future Laravel version.
+     *
+     * @return array
+     */
+    public function getAllViews()
+    {
+        return $this->connection->select(
+            $this->grammar->compileGetAllViews()
+        );
     }
 }

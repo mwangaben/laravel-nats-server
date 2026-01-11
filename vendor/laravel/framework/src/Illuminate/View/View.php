@@ -10,15 +10,13 @@ use Illuminate\Contracts\Support\MessageProvider;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Contracts\View\Engine;
 use Illuminate\Contracts\View\View as ViewContract;
-use Illuminate\Support\Collection;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Support\ViewErrorBag;
-use Stringable;
 use Throwable;
 
-class View implements ArrayAccess, Htmlable, Stringable, ViewContract
+class View implements ArrayAccess, Htmlable, ViewContract
 {
     use Macroable {
         __call as macroCall;
@@ -67,6 +65,7 @@ class View implements ArrayAccess, Htmlable, Stringable, ViewContract
      * @param  string  $view
      * @param  string  $path
      * @param  mixed  $data
+     * @return void
      */
     public function __construct(Factory $factory, Engine $engine, $view, $path, $data = [])
     {
@@ -101,7 +100,7 @@ class View implements ArrayAccess, Htmlable, Stringable, ViewContract
     {
         return is_null($fragments)
             ? $this->allFragments()
-            : (new Collection($fragments))->map(fn ($f) => $this->fragment($f))->implode('');
+            : collect($fragments)->map(fn ($f) => $this->fragment($f))->implode('');
     }
 
     /**
@@ -143,7 +142,7 @@ class View implements ArrayAccess, Htmlable, Stringable, ViewContract
      */
     protected function allFragments()
     {
-        return (new Collection($this->render(fn () => $this->factory->getFragments())))->implode('');
+        return collect($this->render(fn () => $this->factory->getFragments()))->implode('');
     }
 
     /**
@@ -274,7 +273,7 @@ class View implements ArrayAccess, Htmlable, Stringable, ViewContract
     /**
      * Add validation errors to the view.
      *
-     * @param  \Illuminate\Contracts\Support\MessageProvider|array|string  $provider
+     * @param  \Illuminate\Contracts\Support\MessageProvider|array  $provider
      * @param  string  $bag
      * @return $this
      */
@@ -294,8 +293,8 @@ class View implements ArrayAccess, Htmlable, Stringable, ViewContract
     protected function formatErrors($provider)
     {
         return $provider instanceof MessageProvider
-            ? $provider->getMessageBag()
-            : new MessageBag((array) $provider);
+                        ? $provider->getMessageBag()
+                        : new MessageBag((array) $provider);
     }
 
     /**

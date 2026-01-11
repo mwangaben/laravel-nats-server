@@ -15,7 +15,7 @@ class CallQueuedListener implements ShouldQueue
     /**
      * The listener class name.
      *
-     * @var class-string
+     * @var string
      */
     public $class;
 
@@ -85,9 +85,10 @@ class CallQueuedListener implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param  class-string  $class
+     * @param  string  $class
      * @param  string  $method
      * @param  array  $data
+     * @return void
      */
     public function __construct($class, $method, $data)
     {

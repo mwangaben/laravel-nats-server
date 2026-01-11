@@ -23,12 +23,10 @@ trait MassPrunable
 
         $total = 0;
 
-        $softDeletable = static::isSoftDeletable();
-
         do {
-            $total += $count = $softDeletable
-                ? $query->forceDelete()
-                : $query->delete();
+            $total += $count = in_array(SoftDeletes::class, class_uses_recursive(get_class($this)))
+                        ? $query->forceDelete()
+                        : $query->delete();
 
             if ($count > 0) {
                 event(new ModelsPruned(static::class, $total));
@@ -41,7 +39,7 @@ trait MassPrunable
     /**
      * Get the prunable model query.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function prunable()
     {

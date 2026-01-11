@@ -1,0 +1,21 @@
+<php>
+    <env name="APP_ENV" value="testing"/>
+    <env name="BCRYPT_ROUNDS" value="4"/>
+    <env name="CACHE_DRIVER" value="array"/>
+    <env name="MAIL_MAILER" value="array"/>
+    <env name="QUEUE_CONNECTION" value="sync"/>
+    <env name="SESSION_DRIVER" value="array"/>
+    <env name="TELESCOPE_ENABLED" value="false"/>
+
+    <!-- NATS Configuration for local development server -->
+    <env name="NATS_HOST" value="localhost"/>
+    <env name="NATS_PORT" value="53969"/> <!-- Dynamic port from your server -->
+    <env name="NATS_USER" value="local"/>
+    <env name="NATS_PASS" value="4elDZZTb7ofiN83BKjXOvhZvOuhUouhH"/>
+    <env name="NATS_DEBUG" value="true"/>
+    <env name="NATS_VERBOSE" value="true"/>
+
+    <!-- Alternative: Use system credentials if needed -->
+    <!-- <env name="NATS_USER" value="system"/>
+    <env name="NATS_PASS" value="LsVYSAeCr7HveUAigwGdinxyZpIxQk5g"/> -->
+</php>

@@ -7,12 +7,9 @@ use Closure;
 use Countable;
 use Illuminate\Contracts\Support\Jsonable;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Testing\Assert as PHPUnit;
 use JsonSerializable;
-
-use function Illuminate\Support\enum_value;
 
 class AssertableJsonString implements ArrayAccess, Countable
 {
@@ -34,6 +31,7 @@ class AssertableJsonString implements ArrayAccess, Countable
      * Create a new assertable JSON string instance.
      *
      * @param  \Illuminate\Contracts\Support\Jsonable|\JsonSerializable|array|string  $jsonable
+     * @return void
      */
     public function __construct($jsonable)
     {
@@ -213,6 +211,8 @@ class AssertableJsonString implements ArrayAccess, Countable
             'within'.PHP_EOL.PHP_EOL.
             "[{$actual}]."
         );
+
+        return $this;
     }
 
     /**
@@ -240,7 +240,7 @@ class AssertableJsonString implements ArrayAccess, Countable
         if ($expect instanceof Closure) {
             PHPUnit::assertTrue($expect($this->json($path)));
         } else {
-            PHPUnit::assertSame(enum_value($expect), $this->json($path));
+            PHPUnit::assertSame($expect, $this->json($path));
         }
 
         return $this;
@@ -265,27 +265,16 @@ class AssertableJsonString implements ArrayAccess, Countable
      *
      * @param  array|null  $structure
      * @param  array|null  $responseData
-     * @param  bool  $exact
      * @return $this
      */
-    public function assertStructure(?array $structure = null, $responseData = null, bool $exact = false)
+    public function assertStructure(?array $structure = null, $responseData = null)
     {
         if (is_null($structure)) {
             return $this->assertSimilar($this->decoded);
         }
 
         if (! is_null($responseData)) {
-            return (new static($responseData))->assertStructure($structure, null, $exact);
-        }
-
-        if ($exact) {
-            PHPUnit::assertIsArray($this->decoded);
-
-            $keys = (new Collection($structure))->map(fn ($value, $key) => is_array($value) ? $key : $value)->values();
-
-            if ($keys->all() !== ['*']) {
-                PHPUnit::assertEquals($keys->sort()->values()->all(), (new Collection($this->decoded))->keys()->sort()->values()->all());
-            }
+            return (new static($responseData))->assertStructure($structure);
         }
 
         foreach ($structure as $key => $value) {
@@ -293,12 +282,12 @@ class AssertableJsonString implements ArrayAccess, Countable
                 PHPUnit::assertIsArray($this->decoded);
 
                 foreach ($this->decoded as $responseDataItem) {
-                    $this->assertStructure($structure['*'], $responseDataItem, $exact);
+                    $this->assertStructure($structure['*'], $responseDataItem);
                 }
             } elseif (is_array($value)) {
                 PHPUnit::assertArrayHasKey($key, $this->decoded);
 
-                $this->assertStructure($structure[$key], $this->decoded[$key], $exact);
+                $this->assertStructure($structure[$key], $this->decoded[$key]);
             } else {
                 PHPUnit::assertArrayHasKey($value, $this->decoded);
             }

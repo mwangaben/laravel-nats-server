@@ -4,17 +4,16 @@ namespace Illuminate\Support;
 
 use Countable;
 use Illuminate\Contracts\Support\MessageBag as MessageBagContract;
-use Stringable;
 
 /**
  * @mixin \Illuminate\Contracts\Support\MessageBag
  */
-class ViewErrorBag implements Countable, Stringable
+class ViewErrorBag implements Countable
 {
     /**
      * The array of the view error bags.
      *
-     * @var array<string, \Illuminate\Contracts\Support\MessageBag>
+     * @var array
      */
     protected $bags = [];
 
@@ -43,7 +42,7 @@ class ViewErrorBag implements Countable, Stringable
     /**
      * Get all the bags.
      *
-     * @return array<string, \Illuminate\Contracts\Support\MessageBag>
+     * @return array
      */
     public function getBags()
     {

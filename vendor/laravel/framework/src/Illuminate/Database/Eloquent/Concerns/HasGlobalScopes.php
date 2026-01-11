@@ -6,9 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use InvalidArgumentException;
-use ReflectionAttribute;
 use ReflectionClass;
 
 trait HasGlobalScopes
@@ -32,13 +30,8 @@ trait HasGlobalScopes
     {
         $reflectionClass = new ReflectionClass(static::class);
 
-        $attributes = (new Collection($reflectionClass->getAttributes(ScopedBy::class, ReflectionAttribute::IS_INSTANCEOF)));
-
-        foreach ($reflectionClass->getTraits() as $trait) {
-            $attributes->push(...$trait->getAttributes(ScopedBy::class, ReflectionAttribute::IS_INSTANCEOF));
-        }
-
-        return $attributes->map(fn ($attribute) => $attribute->getArguments())
+        return collect($reflectionClass->getAttributes(ScopedBy::class))
+            ->map(fn ($attribute) => $attribute->getArguments())
             ->flatten()
             ->all();
     }
@@ -46,8 +39,8 @@ trait HasGlobalScopes
     /**
      * Register a new global scope on the model.
      *
-     * @param  \Illuminate\Database\Eloquent\Scope|(\Closure(\Illuminate\Database\Eloquent\Builder<static>): mixed)|string  $scope
-     * @param  \Illuminate\Database\Eloquent\Scope|(\Closure(\Illuminate\Database\Eloquent\Builder<static>): mixed)|null  $implementation
+     * @param  \Illuminate\Database\Eloquent\Scope|\Closure|string  $scope
+     * @param  \Illuminate\Database\Eloquent\Scope|\Closure|null  $implementation
      * @return mixed
      *
      * @throws \InvalidArgumentException
@@ -99,7 +92,7 @@ trait HasGlobalScopes
      * Get a global scope registered with the model.
      *
      * @param  \Illuminate\Database\Eloquent\Scope|string  $scope
-     * @return \Illuminate\Database\Eloquent\Scope|(\Closure(\Illuminate\Database\Eloquent\Builder<static>): mixed)|null
+     * @return \Illuminate\Database\Eloquent\Scope|\Closure|null
      */
     public static function getGlobalScope($scope)
     {

@@ -25,9 +25,12 @@ use Symfony\Component\Uid\Factory\UlidFactory;
 #[AsCommand(name: 'ulid:generate', description: 'Generate a ULID')]
 class GenerateUlidCommand extends Command
 {
-    public function __construct(
-        private UlidFactory $factory = new UlidFactory(),
-    ) {
+    private UlidFactory $factory;
+
+    public function __construct(?UlidFactory $factory = null)
+    {
+        $this->factory = $factory ?? new UlidFactory();
+
         parent::__construct();
     }
 
@@ -40,22 +43,22 @@ class GenerateUlidCommand extends Command
                 new InputOption('format', 'f', InputOption::VALUE_REQUIRED, \sprintf('The ULID output format ("%s")', implode('", "', $this->getAvailableFormatOptions())), 'base32'),
             ])
             ->setHelp(<<<'EOF'
-                The <info>%command.name%</info> command generates a ULID.
+The <info>%command.name%</info> command generates a ULID.
 
-                    <info>php %command.full_name%</info>
+    <info>php %command.full_name%</info>
 
-                To specify the timestamp:
+To specify the timestamp:
 
-                    <info>php %command.full_name% --time="2021-02-16 14:09:08"</info>
+    <info>php %command.full_name% --time="2021-02-16 14:09:08"</info>
 
-                To generate several ULIDs:
+To generate several ULIDs:
 
-                    <info>php %command.full_name% --count=10</info>
+    <info>php %command.full_name% --count=10</info>
 
-                To output a specific format:
+To output a specific format:
 
-                    <info>php %command.full_name% --format=rfc4122</info>
-                EOF
+    <info>php %command.full_name% --format=rfc4122</info>
+EOF
             )
         ;
     }
@@ -76,7 +79,7 @@ class GenerateUlidCommand extends Command
 
         $formatOption = $input->getOption('format');
 
-        if (\in_array($formatOption, $this->getAvailableFormatOptions(), true)) {
+        if (\in_array($formatOption, $this->getAvailableFormatOptions())) {
             $format = 'to'.ucfirst($formatOption);
         } else {
             $io->error(\sprintf('Invalid format "%s", supported formats are "%s".', $formatOption, implode('", "', $this->getAvailableFormatOptions())));
@@ -105,7 +108,6 @@ class GenerateUlidCommand extends Command
         }
     }
 
-    /** @return string[] */
     private function getAvailableFormatOptions(): array
     {
         return [

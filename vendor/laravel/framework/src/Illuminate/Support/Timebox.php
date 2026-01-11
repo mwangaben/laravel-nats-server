@@ -21,8 +21,6 @@ class Timebox
      * @param  (callable($this): TCallReturnType)  $callback
      * @param  int  $microseconds
      * @return TCallReturnType
-     *
-     * @throws \Throwable
      */
     public function call(callable $callback, int $microseconds)
     {
@@ -36,7 +34,7 @@ class Timebox
             $exception = $caught;
         }
 
-        $remainder = (int) ($microseconds - ((microtime(true) - $start) * 1000000));
+        $remainder = intval($microseconds - ((microtime(true) - $start) * 1000000));
 
         if (! $this->earlyReturn && $remainder > 0) {
             $this->usleep($remainder);

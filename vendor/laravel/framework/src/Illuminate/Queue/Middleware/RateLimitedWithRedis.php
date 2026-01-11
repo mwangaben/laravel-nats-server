@@ -29,6 +29,7 @@ class RateLimitedWithRedis extends RateLimited
      * Create a new middleware instance.
      *
      * @param  string  $limiterName
+     * @return void
      */
     public function __construct($limiterName)
     {
@@ -48,9 +49,9 @@ class RateLimitedWithRedis extends RateLimited
     protected function handleJob($job, $next, array $limits)
     {
         foreach ($limits as $limit) {
-            if ($this->tooManyAttempts($limit->key, $limit->maxAttempts, $limit->decaySeconds)) {
+            if ($this->tooManyAttempts($limit->key, $limit->maxAttempts, $limit->decayMinutes)) {
                 return $this->shouldRelease
-                    ? $job->release($this->releaseAfter ?: $this->getTimeUntilNextRetry($limit->key))
+                    ? $job->release($this->getTimeUntilNextRetry($limit->key))
                     : false;
             }
         }
@@ -63,13 +64,13 @@ class RateLimitedWithRedis extends RateLimited
      *
      * @param  string  $key
      * @param  int  $maxAttempts
-     * @param  int  $decaySeconds
+     * @param  int  $decayMinutes
      * @return bool
      */
-    protected function tooManyAttempts($key, $maxAttempts, $decaySeconds)
+    protected function tooManyAttempts($key, $maxAttempts, $decayMinutes)
     {
         $limiter = new DurationLimiter(
-            $this->redis, $key, $maxAttempts, $decaySeconds
+            $this->redis, $key, $maxAttempts, $decayMinutes * 60
         );
 
         return tap(! $limiter->acquire(), function () use ($key, $limiter) {

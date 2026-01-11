@@ -35,6 +35,7 @@ class ThrottleRequestsWithRedis extends ThrottleRequests
      *
      * @param  \Illuminate\Cache\RateLimiter  $limiter
      * @param  \Illuminate\Contracts\Redis\Factory  $redis
+     * @return void
      */
     public function __construct(RateLimiter $limiter, Redis $redis)
     {
@@ -56,7 +57,7 @@ class ThrottleRequestsWithRedis extends ThrottleRequests
     protected function handleRequest($request, Closure $next, array $limits)
     {
         foreach ($limits as $limit) {
-            if ($this->tooManyAttempts($limit->key, $limit->maxAttempts, $limit->decaySeconds)) {
+            if ($this->tooManyAttempts($limit->key, $limit->maxAttempts, $limit->decayMinutes)) {
                 throw $this->buildException($request, $limit->key, $limit->maxAttempts, $limit->responseCallback);
             }
         }
@@ -79,13 +80,13 @@ class ThrottleRequestsWithRedis extends ThrottleRequests
      *
      * @param  string  $key
      * @param  int  $maxAttempts
-     * @param  int  $decaySeconds
+     * @param  int  $decayMinutes
      * @return mixed
      */
-    protected function tooManyAttempts($key, $maxAttempts, $decaySeconds)
+    protected function tooManyAttempts($key, $maxAttempts, $decayMinutes)
     {
         $limiter = new DurationLimiter(
-            $this->getRedisConnection(), $key, $maxAttempts, $decaySeconds
+            $this->getRedisConnection(), $key, $maxAttempts, $decayMinutes * 60
         );
 
         return tap(! $limiter->acquire(), function () use ($key, $limiter) {

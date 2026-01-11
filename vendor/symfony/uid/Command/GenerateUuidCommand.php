@@ -20,16 +20,18 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Uid\Exception\LogicException;
 use Symfony\Component\Uid\Factory\UuidFactory;
 use Symfony\Component\Uid\Uuid;
 
 #[AsCommand(name: 'uuid:generate', description: 'Generate a UUID')]
 class GenerateUuidCommand extends Command
 {
-    public function __construct(
-        private UuidFactory $factory = new UuidFactory(),
-    ) {
+    private UuidFactory $factory;
+
+    public function __construct(?UuidFactory $factory = null)
+    {
+        $this->factory = $factory ?? new UuidFactory();
+
         parent::__construct();
     }
 
@@ -46,38 +48,38 @@ class GenerateUuidCommand extends Command
                 new InputOption('format', 'f', InputOption::VALUE_REQUIRED, \sprintf('The UUID output format ("%s")', implode('", "', $this->getAvailableFormatOptions())), 'rfc4122'),
             ])
             ->setHelp(<<<'EOF'
-                The <info>%command.name%</info> generates a UUID.
+The <info>%command.name%</info> generates a UUID.
 
-                    <info>php %command.full_name%</info>
+    <info>php %command.full_name%</info>
 
-                To generate a time-based UUID:
+To generate a time-based UUID:
 
-                    <info>php %command.full_name% --time-based=now</info>
+    <info>php %command.full_name% --time-based=now</info>
 
-                To specify a time-based UUID's node:
+To specify a time-based UUID's node:
 
-                    <info>php %command.full_name% --time-based=@1613480254 --node=fb3502dc-137e-4849-8886-ac90d07f64a7</info>
+    <info>php %command.full_name% --time-based=@1613480254 --node=fb3502dc-137e-4849-8886-ac90d07f64a7</info>
 
-                To generate a name-based UUID:
+To generate a name-based UUID:
 
-                    <info>php %command.full_name% --name-based=foo</info>
+    <info>php %command.full_name% --name-based=foo</info>
 
-                To specify a name-based UUID's namespace:
+To specify a name-based UUID's namespace:
 
-                    <info>php %command.full_name% --name-based=bar --namespace=fb3502dc-137e-4849-8886-ac90d07f64a7</info>
+    <info>php %command.full_name% --name-based=bar --namespace=fb3502dc-137e-4849-8886-ac90d07f64a7</info>
 
-                To generate a random-based UUID:
+To generate a random-based UUID:
 
-                    <info>php %command.full_name% --random-based</info>
+    <info>php %command.full_name% --random-based</info>
 
-                To generate several UUIDs:
+To generate several UUIDs:
 
-                    <info>php %command.full_name% --count=10</info>
+    <info>php %command.full_name% --count=10</info>
 
-                To output a specific format:
+To output a specific format:
 
-                    <info>php %command.full_name% --format=base58</info>
-                EOF
+    <info>php %command.full_name% --format=base58</info>
+EOF
             )
         ;
     }
@@ -147,7 +149,7 @@ class GenerateUuidCommand extends Command
                 $create = function () use ($namespace, $name): Uuid {
                     try {
                         $factory = $this->factory->nameBased($namespace);
-                    } catch (LogicException) {
+                    } catch (\LogicException) {
                         throw new \InvalidArgumentException('Missing namespace: use the "--namespace" option or configure a default namespace in the underlying factory.');
                     }
 
@@ -166,7 +168,7 @@ class GenerateUuidCommand extends Command
 
         $formatOption = $input->getOption('format');
 
-        if (\in_array($formatOption, $this->getAvailableFormatOptions(), true)) {
+        if (\in_array($formatOption, $this->getAvailableFormatOptions())) {
             $format = 'to'.ucfirst($formatOption);
         } else {
             $io->error(\sprintf('Invalid format "%s", supported formats are "%s".', $formatOption, implode('", "', $this->getAvailableFormatOptions())));
@@ -195,7 +197,6 @@ class GenerateUuidCommand extends Command
         }
     }
 
-    /** @return string[] */
     private function getAvailableFormatOptions(): array
     {
         return [

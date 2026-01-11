@@ -19,6 +19,8 @@ trait InteractsWithIO
      * The console components factory.
      *
      * @var \Illuminate\Console\View\Components\Factory
+     *
+     * @internal This property is not meant to be used or overwritten outside the framework.
      */
     protected $components;
 
@@ -44,7 +46,7 @@ trait InteractsWithIO
     protected $verbosity = OutputInterface::VERBOSITY_NORMAL;
 
     /**
-     * The mapping between human-readable verbosity levels and Symfony's OutputInterface.
+     * The mapping between human readable verbosity levels and Symfony's OutputInterface.
      *
      * @var array
      */
@@ -93,7 +95,7 @@ trait InteractsWithIO
     }
 
     /**
-     * Determine whether the option is defined in the command signature.
+     * Determine if the given option is present.
      *
      * @param  string  $name
      * @return bool
@@ -206,7 +208,7 @@ trait InteractsWithIO
      * @param  string  $question
      * @param  array  $choices
      * @param  string|int|null  $default
-     * @param  mixed  $attempts
+     * @param  mixed|null  $attempts
      * @param  bool  $multiple
      * @return string|array
      */
@@ -261,8 +263,8 @@ trait InteractsWithIO
         $bar->start();
 
         if (is_iterable($totalSteps)) {
-            foreach ($totalSteps as $key => $value) {
-                $callback($value, $bar, $key);
+            foreach ($totalSteps as $value) {
+                $callback($value, $bar);
 
                 $bar->advance();
             }
@@ -430,8 +432,6 @@ trait InteractsWithIO
      */
     protected function parseVerbosity($level = null)
     {
-        $level ??= '';
-
         if (isset($this->verbosityMap[$level])) {
             $level = $this->verbosityMap[$level];
         } elseif (! is_int($level)) {

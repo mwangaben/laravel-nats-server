@@ -37,8 +37,14 @@ class VarDumper
      */
     private static $handler;
 
-    public static function dump(mixed $var, ?string $label = null): mixed
+    /**
+     * @param string|null $label
+     *
+     * @return mixed
+     */
+    public static function dump(mixed $var/* , string $label = null */)
     {
+        $label = 2 <= \func_num_args() ? func_get_arg(1) : null;
         if (null === self::$handler) {
             self::register();
         }
@@ -46,8 +52,11 @@ class VarDumper
         return (self::$handler)($var, $label);
     }
 
-    public static function setHandler(?callable $callable): ?callable
+    public static function setHandler(?callable $callable = null): ?callable
     {
+        if (1 > \func_num_args()) {
+            trigger_deprecation('symfony/var-dumper', '6.2', 'Calling "%s()" without any arguments is deprecated, pass null explicitly instead.', __METHOD__);
+        }
         $prevHandler = self::$handler;
 
         // Prevent replacing the handler with expected format as soon as the env var was set:
@@ -76,13 +85,11 @@ class VarDumper
             case 'server' === $format:
             case $format && 'tcp' === parse_url($format, \PHP_URL_SCHEME):
                 $host = 'server' === $format ? $_SERVER['VAR_DUMPER_SERVER'] ?? '127.0.0.1:9912' : $format;
-                $accept = $_SERVER['HTTP_ACCEPT'] ?? (\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true) ? 'txt' : 'html');
-                $dumper = str_contains($accept, 'html') || str_contains($accept, '*/*') ? new HtmlDumper() : new CliDumper();
+                $dumper = \in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true) ? new CliDumper() : new HtmlDumper();
                 $dumper = new ServerDumper($host, $dumper, self::getDefaultContextProviders());
                 break;
             default:
-                $accept = $_SERVER['HTTP_ACCEPT'] ?? (\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true) ? 'txt' : 'html');
-                $dumper = str_contains($accept, 'html') || str_contains($accept, '*/*') ? new HtmlDumper() : new CliDumper();
+                $dumper = \in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true) ? new CliDumper() : new HtmlDumper();
         }
 
         if (!$dumper instanceof ServerDumper) {

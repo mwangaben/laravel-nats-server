@@ -3,11 +3,8 @@
 namespace Illuminate\Testing\Concerns;
 
 use Illuminate\Contracts\Console\Kernel;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Testing\ParallelConsoleOutput;
-use PHPUnit\TextUI\Configuration\PhpHandler;
 use RuntimeException;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -54,6 +51,7 @@ trait RunsInParallel
      *
      * @param  \ParaTest\Runners\PHPUnit\Options|\ParaTest\Options  $options
      * @param  \Symfony\Component\Console\Output\OutputInterface  $output
+     * @return void
      */
     public function __construct($options, OutputInterface $output)
     {
@@ -103,11 +101,15 @@ trait RunsInParallel
      */
     public function execute(): int
     {
+        $phpHandlerClass = class_exists(\PHPUnit\TextUI\Configuration\PhpHandler::class)
+            ? \PHPUnit\TextUI\Configuration\PhpHandler::class
+            : \PHPUnit\TextUI\XmlConfiguration\PhpHandler::class;
+
         $configuration = $this->options instanceof \ParaTest\Options
             ? $this->options->configuration
             : $this->options->configuration();
 
-        (new PhpHandler())->handle($configuration->php());
+        (new $phpHandlerClass)->handle($configuration->php());
 
         $this->forEachProcess(function () {
             ParallelTesting::callSetUpProcessCallbacks();
@@ -121,7 +123,9 @@ trait RunsInParallel
             });
         }
 
-        return $potentialExitCode ?? $this->getExitCode();
+        return $potentialExitCode === null
+            ? $this->getExitCode()
+            : $potentialExitCode;
     }
 
     /**
@@ -146,7 +150,7 @@ trait RunsInParallel
             ? $this->options->processes
             : $this->options->processes();
 
-        Collection::range(1, $processes)->each(function ($token) use ($callback) {
+        collect(range(1, $processes))->each(function ($token) use ($callback) {
             tap($this->createApplication(), function ($app) use ($callback, $token) {
                 ParallelTesting::resolveTokenUsing(fn () => $token);
 
@@ -172,7 +176,8 @@ trait RunsInParallel
                 };
 
                 return $applicationCreator->createApplication();
-            } elseif (file_exists($path = (Application::inferBasePath().'/bootstrap/app.php'))) {
+            } elseif (file_exists($path = getcwd().'/bootstrap/app.php') ||
+                      file_exists($path = getcwd().'/.laravel/app.php')) {
                 $app = require $path;
 
                 $app->make(Kernel::class)->bootstrap();

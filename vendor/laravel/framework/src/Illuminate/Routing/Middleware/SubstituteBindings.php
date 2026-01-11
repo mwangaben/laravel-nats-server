@@ -19,6 +19,7 @@ class SubstituteBindings
      * Create a new bindings substitutor.
      *
      * @param  \Illuminate\Contracts\Routing\Registrar  $router
+     * @return void
      */
     public function __construct(Registrar $router)
     {
@@ -34,10 +35,9 @@ class SubstituteBindings
      */
     public function handle($request, Closure $next)
     {
-        $route = $request->route();
-
         try {
-            $this->router->substituteBindings($route);
+            $this->router->substituteBindings($route = $request->route());
+
             $this->router->substituteImplicitBindings($route);
         } catch (ModelNotFoundException $exception) {
             if ($route->getMissing()) {

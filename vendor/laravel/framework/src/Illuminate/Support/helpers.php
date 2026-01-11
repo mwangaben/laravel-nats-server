@@ -2,25 +2,21 @@
 
 use Illuminate\Contracts\Support\DeferringDisplayableValue;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Env;
-use Illuminate\Support\Fluent;
 use Illuminate\Support\HigherOrderTapProxy;
-use Illuminate\Support\Once;
-use Illuminate\Support\Onceable;
 use Illuminate\Support\Optional;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
-use Illuminate\Support\Stringable as SupportStringable;
 
 if (! function_exists('append_config')) {
     /**
      * Assign high numeric IDs to a config item to force appending.
      *
      * @param  array  $array
+     * @return array
      */
-    function append_config(array $array): array
+    function append_config(array $array)
     {
         $start = 9999;
 
@@ -40,13 +36,10 @@ if (! function_exists('blank')) {
     /**
      * Determine if the given value is "blank".
      *
-     * @phpstan-assert-if-false !=null|'' $value
-     *
-     * @phpstan-assert-if-true !=numeric|bool $value
-     *
      * @param  mixed  $value
+     * @return bool
      */
-    function blank($value): bool
+    function blank($value)
     {
         if (is_null($value)) {
             return true;
@@ -60,16 +53,8 @@ if (! function_exists('blank')) {
             return false;
         }
 
-        if ($value instanceof Model) {
-            return false;
-        }
-
         if ($value instanceof Countable) {
             return count($value) === 0;
-        }
-
-        if ($value instanceof Stringable) {
-            return trim((string) $value) === '';
         }
 
         return empty($value);
@@ -81,8 +66,9 @@ if (! function_exists('class_basename')) {
      * Get the class "basename" of the given object / class.
      *
      * @param  string|object  $class
+     * @return string
      */
-    function class_basename($class): string
+    function class_basename($class)
     {
         $class = is_object($class) ? get_class($class) : $class;
 
@@ -95,9 +81,9 @@ if (! function_exists('class_uses_recursive')) {
      * Returns all traits used by a class, its parent classes and trait of their traits.
      *
      * @param  object|string  $class
-     * @return array<string, string>
+     * @return array
      */
-    function class_uses_recursive($class): array
+    function class_uses_recursive($class)
     {
         if (is_object($class)) {
             $class = get_class($class);
@@ -117,17 +103,18 @@ if (! function_exists('e')) {
     /**
      * Encode HTML special characters in a string.
      *
-     * @param  \Illuminate\Contracts\Support\DeferringDisplayableValue|\Illuminate\Contracts\Support\Htmlable|\BackedEnum|string|int|float|null  $value
+     * @param  \Illuminate\Contracts\Support\DeferringDisplayableValue|\Illuminate\Contracts\Support\Htmlable|\BackedEnum|string|null  $value
      * @param  bool  $doubleEncode
+     * @return string
      */
-    function e($value, $doubleEncode = true): string
+    function e($value, $doubleEncode = true)
     {
         if ($value instanceof DeferringDisplayableValue) {
             $value = $value->resolveDisplayableValue();
         }
 
         if ($value instanceof Htmlable) {
-            return $value->toHtml() ?? '';
+            return $value->toHtml();
         }
 
         if ($value instanceof BackedEnum) {
@@ -156,43 +143,25 @@ if (! function_exists('filled')) {
     /**
      * Determine if a value is "filled".
      *
-     * @phpstan-assert-if-true !=null|'' $value
-     *
-     * @phpstan-assert-if-false !=numeric|bool $value
-     *
      * @param  mixed  $value
+     * @return bool
      */
-    function filled($value): bool
+    function filled($value)
     {
         return ! blank($value);
     }
 }
 
-if (! function_exists('fluent')) {
+if (! function_exists('laravel_cloud')) {
     /**
-     * Create a Fluent object from the given value.
+     * Determine if the application is running on Laravel Cloud.
      *
-     * @param  iterable|object|null  $value
+     * @return bool
      */
-    function fluent($value = null): Fluent
+    function laravel_cloud()
     {
-        return new Fluent($value ?? []);
-    }
-}
-
-if (! function_exists('literal')) {
-    /**
-     * Return a new literal or anonymous object using named arguments.
-     *
-     * @return mixed
-     */
-    function literal(...$arguments)
-    {
-        if (count($arguments) === 1 && array_is_list($arguments)) {
-            return $arguments[0];
-        }
-
-        return (object) $arguments;
+        return ($_ENV['LARAVEL_CLOUD'] ?? false) === '1' ||
+               ($_SERVER['LARAVEL_CLOUD'] ?? false) === '1';
     }
 }
 
@@ -200,12 +169,10 @@ if (! function_exists('object_get')) {
     /**
      * Get an item from an object using "dot" notation.
      *
-     * @template TValue of object
-     *
-     * @param  TValue  $object
+     * @param  object  $object
      * @param  string|null  $key
      * @param  mixed  $default
-     * @return ($key is empty ? TValue : mixed)
+     * @return mixed
      */
     function object_get($object, $key, $default = null)
     {
@@ -225,47 +192,13 @@ if (! function_exists('object_get')) {
     }
 }
 
-if (! function_exists('laravel_cloud')) {
-    /**
-     * Determine if the application is running on Laravel Cloud.
-     */
-    function laravel_cloud(): bool
-    {
-        return ($_ENV['LARAVEL_CLOUD'] ?? false) === '1' ||
-            ($_SERVER['LARAVEL_CLOUD'] ?? false) === '1';
-    }
-}
-
-if (! function_exists('once')) {
-    /**
-     * Ensures a callable is only called once, and returns the result on subsequent calls.
-     *
-     * @template  TReturnType
-     *
-     * @param  callable(): TReturnType  $callback
-     * @return TReturnType
-     */
-    function once(callable $callback)
-    {
-        $onceable = Onceable::tryFromTrace(
-            debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 2),
-            $callback,
-        );
-
-        return $onceable ? Once::instance()->value($onceable) : call_user_func($callback);
-    }
-}
-
 if (! function_exists('optional')) {
     /**
      * Provide access to optional objects.
      *
-     * @template TValue
-     * @template TReturn
-     *
-     * @param  TValue  $value
-     * @param  (callable(TValue): TReturn)|null  $callback
-     * @return ($callback is null ? \Illuminate\Support\Optional : ($value is null ? null : TReturn))
+     * @param  mixed  $value
+     * @param  callable|null  $callback
+     * @return mixed
      */
     function optional($value = null, ?callable $callback = null)
     {
@@ -284,8 +217,9 @@ if (! function_exists('preg_replace_array')) {
      * @param  string  $pattern
      * @param  array  $replacements
      * @param  string  $subject
+     * @return string
      */
-    function preg_replace_array($pattern, array $replacements, $subject): string
+    function preg_replace_array($pattern, array $replacements, $subject)
     {
         return preg_replace_callback($pattern, function () use (&$replacements) {
             foreach ($replacements as $value) {
@@ -299,15 +233,13 @@ if (! function_exists('retry')) {
     /**
      * Retry an operation a given number of times.
      *
-     * @template TValue
+     * @param  int|array  $times
+     * @param  callable  $callback
+     * @param  int|\Closure  $sleepMilliseconds
+     * @param  callable|null  $when
+     * @return mixed
      *
-     * @param  int|array<int, int>  $times
-     * @param  callable(int): TValue  $callback
-     * @param  int|\Closure(int, \Throwable): int  $sleepMilliseconds
-     * @param  (callable(\Throwable): bool)|null  $when
-     * @return TValue
-     *
-     * @throws \Throwable
+     * @throws \Exception
      */
     function retry($times, callable $callback, $sleepMilliseconds = 0, $when = null)
     {
@@ -327,7 +259,7 @@ if (! function_exists('retry')) {
 
         try {
             return $callback($attempts);
-        } catch (Throwable $e) {
+        } catch (Exception $e) {
             if ($times < 1 || ($when && ! $when($e))) {
                 throw $e;
             }
@@ -348,7 +280,7 @@ if (! function_exists('str')) {
      * Get a new stringable object from the given string.
      *
      * @param  string|null  $string
-     * @return ($string is null ? object : \Illuminate\Support\Stringable)
+     * @return \Illuminate\Support\Stringable|mixed
      */
     function str($string = null)
     {
@@ -367,7 +299,7 @@ if (! function_exists('str')) {
             };
         }
 
-        return new SupportStringable($string);
+        return Str::of($string);
     }
 }
 
@@ -375,11 +307,9 @@ if (! function_exists('tap')) {
     /**
      * Call the given Closure with the given value then return the value.
      *
-     * @template TValue
-     *
-     * @param  TValue  $value
-     * @param  (callable(TValue): mixed)|null  $callback
-     * @return ($callback is null ? \Illuminate\Support\HigherOrderTapProxy : TValue)
+     * @param  mixed  $value
+     * @param  callable|null  $callback
+     * @return mixed
      */
     function tap($value, $callback = null)
     {
@@ -397,25 +327,18 @@ if (! function_exists('throw_if')) {
     /**
      * Throw the given exception if the given condition is true.
      *
-     * @template TValue
-     * @template TParams of mixed
      * @template TException of \Throwable
-     * @template TExceptionValue of TException|class-string<TException>|string
      *
-     * @param  TValue  $condition
-     * @param  Closure(TParams): TExceptionValue|TExceptionValue  $exception
-     * @param  TParams  ...$parameters
-     * @return ($condition is true ? never : ($condition is non-empty-mixed ? never : TValue))
+     * @param  mixed  $condition
+     * @param  TException|class-string<TException>|string  $exception
+     * @param  mixed  ...$parameters
+     * @return mixed
      *
      * @throws TException
      */
     function throw_if($condition, $exception = 'RuntimeException', ...$parameters)
     {
         if ($condition) {
-            if ($exception instanceof Closure) {
-                $exception = $exception(...$parameters);
-            }
-
             if (is_string($exception) && class_exists($exception)) {
                 $exception = new $exception(...$parameters);
             }
@@ -431,15 +354,12 @@ if (! function_exists('throw_unless')) {
     /**
      * Throw the given exception unless the given condition is true.
      *
-     * @template TValue
-     * @template TParams of mixed
      * @template TException of \Throwable
-     * @template TExceptionValue of TException|class-string<TException>|string
      *
-     * @param  TValue  $condition
-     * @param  Closure(TParams): TExceptionValue|TExceptionValue  $exception
-     * @param  TParams  ...$parameters
-     * @return ($condition is false ? never : ($condition is non-empty-mixed ? TValue : never))
+     * @param  mixed  $condition
+     * @param  TException|class-string<TException>|string  $exception
+     * @param  mixed  ...$parameters
+     * @return mixed
      *
      * @throws TException
      */
@@ -456,9 +376,9 @@ if (! function_exists('trait_uses_recursive')) {
      * Returns all traits used by a trait and its traits.
      *
      * @param  object|string  $trait
-     * @return array<string, string>
+     * @return array
      */
-    function trait_uses_recursive($trait): array
+    function trait_uses_recursive($trait)
     {
         $traits = class_uses($trait) ?: [];
 
@@ -474,14 +394,14 @@ if (! function_exists('transform')) {
     /**
      * Transform the given value if it is present.
      *
-     * @template TValue
-     * @template TReturn
-     * @template TDefault
+     * @template TValue of mixed
+     * @template TReturn of mixed
+     * @template TDefault of mixed
      *
      * @param  TValue  $value
      * @param  callable(TValue): TReturn  $callback
-     * @param  TDefault|callable(TValue): TDefault  $default
-     * @return ($value is empty ? TDefault : TReturn)
+     * @param  TDefault|callable(TValue): TDefault|null  $default
+     * @return ($value is empty ? ($default is null ? null : TDefault) : TReturn)
      */
     function transform($value, callable $callback, $default = null)
     {
@@ -500,8 +420,10 @@ if (! function_exists('transform')) {
 if (! function_exists('windows_os')) {
     /**
      * Determine whether the current environment is Windows based.
+     *
+     * @return bool
      */
-    function windows_os(): bool
+    function windows_os()
     {
         return PHP_OS_FAMILY === 'Windows';
     }

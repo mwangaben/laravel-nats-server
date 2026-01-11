@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         verbose="true">
+    <testsuites>
+        <testsuite name="Unit Tests">
+            <directory>tests</directory>
+            <exclude>tests/RealConnectionTest.php</exclude>
+            <exclude>tests/IntegrationTest.php</exclude>
+        </testsuite>
+        <testsuite name="Integration Tests">
+            <file>tests/RealConnectionTest.php</file>
+            <file>tests/IntegrationTest.php</file>
+        </testsuite>
+        <testsuite name="All Tests">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </coverage>
+    <php>
+        <!-- Remove these duplicate constant definitions -->
+        <!-- They're already defined in bootstrap.php -->
+    </php>
+    <groups>
+        <exclude>
+            <group>integration</group>
+        </exclude>
+    </groups>
+</phpunit>

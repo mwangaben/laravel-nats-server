@@ -18,16 +18,10 @@ class AuthenticateSession implements AuthenticatesSessions
     protected $auth;
 
     /**
-     * The callback that should be used to generate the authentication redirect path.
-     *
-     * @var callable
-     */
-    protected static $redirectToCallback;
-
-    /**
      * Create a new middleware instance.
      *
      * @param  \Illuminate\Contracts\Auth\Factory  $auth
+     * @return void
      */
     public function __construct(AuthFactory $auth)
     {
@@ -43,15 +37,14 @@ class AuthenticateSession implements AuthenticatesSessions
      */
     public function handle($request, Closure $next)
     {
-        if (! $request->hasSession() || ! $request->user() || ! $request->user()->getAuthPassword()) {
+        if (! $request->hasSession() || ! $request->user()) {
             return $next($request);
         }
 
         if ($this->guard()->viaRemember()) {
-            $passwordHashFromCookie = explode('|', $request->cookies->get($this->guard()->getRecallerName()))[2] ?? null;
+            $passwordHash = explode('|', $request->cookies->get($this->guard()->getRecallerName()))[2] ?? null;
 
-            if (! $passwordHashFromCookie ||
-                ! $this->validatePasswordHash($request->user()->getAuthPassword(), $passwordHashFromCookie)) {
+            if (! $passwordHash || $passwordHash != $request->user()->getAuthPassword()) {
                 $this->logout($request);
             }
         }
@@ -60,9 +53,7 @@ class AuthenticateSession implements AuthenticatesSessions
             $this->storePasswordHashInSession($request);
         }
 
-        $sessionPasswordHash = $request->session()->get('password_hash_'.$this->auth->getDefaultDriver());
-
-        if (! $this->validatePasswordHash($request->user()->getAuthPassword(), $sessionPasswordHash)) {
+        if ($request->session()->get('password_hash_'.$this->auth->getDefaultDriver()) !== $request->user()->getAuthPassword()) {
             $this->logout($request);
         }
 
@@ -86,26 +77,8 @@ class AuthenticateSession implements AuthenticatesSessions
         }
 
         $request->session()->put([
-            'password_hash_'.$this->auth->getDefaultDriver() => $this->guard()->hashPasswordForCookie($request->user()->getAuthPassword()),
+            'password_hash_'.$this->auth->getDefaultDriver() => $request->user()->getAuthPassword(),
         ]);
-    }
-
-    /**
-     * Validate the password hash against the stored value.
-     *
-     * @param  string  $passwordHash
-     * @param  string  $storedValue
-     * @return bool
-     */
-    protected function validatePasswordHash($passwordHash, $storedValue)
-    {
-        // Try new HMAC format first...
-        if (hash_equals($this->guard()->hashPasswordForCookie($passwordHash), $storedValue)) {
-            return true;
-        }
-
-        // Fall back to raw password hash format for backward compatibility...
-        return hash_equals($passwordHash, $storedValue);
     }
 
     /**
@@ -145,19 +118,6 @@ class AuthenticateSession implements AuthenticatesSessions
      */
     protected function redirectTo(Request $request)
     {
-        if (static::$redirectToCallback) {
-            return call_user_func(static::$redirectToCallback, $request);
-        }
-    }
-
-    /**
-     * Specify the callback that should be used to generate the redirect path.
-     *
-     * @param  callable  $redirectToCallback
-     * @return void
-     */
-    public static function redirectUsing(callable $redirectToCallback)
-    {
-        static::$redirectToCallback = $redirectToCallback;
+        //
     }
 }

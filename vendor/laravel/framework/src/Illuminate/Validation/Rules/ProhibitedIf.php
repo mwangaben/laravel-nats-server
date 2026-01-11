@@ -4,21 +4,21 @@ namespace Illuminate\Validation\Rules;
 
 use Closure;
 use InvalidArgumentException;
-use Stringable;
 
-class ProhibitedIf implements Stringable
+class ProhibitedIf
 {
     /**
      * The condition that validates the attribute.
      *
-     * @var (\Closure(): bool)|bool
+     * @var \Closure|bool
      */
     public $condition;
 
     /**
      * Create a new prohibited validation rule based on a condition.
      *
-     * @param  (\Closure(): bool)|bool  $condition
+     * @param  \Closure|bool  $condition
+     * @return void
      *
      * @throws \InvalidArgumentException
      */

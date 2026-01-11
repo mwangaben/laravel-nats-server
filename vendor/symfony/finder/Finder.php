@@ -37,7 +37,7 @@ use Symfony\Component\Finder\Iterator\SortableIterator;
  *
  * @author Fabien Potencier <fabien@symfony.com>
  *
- * @implements \IteratorAggregate<non-empty-string, SplFileInfo>
+ * @implements \IteratorAggregate<string, SplFileInfo>
  */
 class Finder implements \IteratorAggregate, \Countable
 {
@@ -397,8 +397,10 @@ class Finder implements \IteratorAggregate, \Countable
      * @see ignoreVCS()
      *
      * @param string|string[] $pattern VCS patterns to ignore
+     *
+     * @return void
      */
-    public static function addVCSPattern(string|array $pattern): void
+    public static function addVCSPattern(string|array $pattern)
     {
         foreach ((array) $pattern as $p) {
             self::$vcsPatterns[] = $p;
@@ -586,8 +588,9 @@ class Finder implements \IteratorAggregate, \Countable
      *
      * @see CustomFilterIterator
      */
-    public function filter(\Closure $closure, bool $prune = false): static
+    public function filter(\Closure $closure /* , bool $prune = false */): static
     {
+        $prune = 1 < \func_num_args() ? func_get_arg(1) : false;
         $this->filters[] = $closure;
 
         if ($prune) {
@@ -657,7 +660,7 @@ class Finder implements \IteratorAggregate, \Countable
      *
      * This method implements the IteratorAggregate interface.
      *
-     * @return \Iterator<non-empty-string, SplFileInfo>
+     * @return \Iterator<string, SplFileInfo>
      *
      * @throws \LogicException if the in() method has not been called
      */
@@ -699,6 +702,8 @@ class Finder implements \IteratorAggregate, \Countable
      * The set can be another Finder, an Iterator, an IteratorAggregate, or even a plain array.
      *
      * @return $this
+     *
+     * @throws \InvalidArgumentException when the given argument is not iterable
      */
     public function append(iterable $iterator): static
     {
@@ -706,13 +711,15 @@ class Finder implements \IteratorAggregate, \Countable
             $this->iterators[] = $iterator->getIterator();
         } elseif ($iterator instanceof \Iterator) {
             $this->iterators[] = $iterator;
-        } else {
+        } elseif (is_iterable($iterator)) {
             $it = new \ArrayIterator();
             foreach ($iterator as $file) {
                 $file = $file instanceof \SplFileInfo ? $file : new \SplFileInfo($file);
                 $it[$file->getPathname()] = $file;
             }
             $this->iterators[] = $it;
+        } else {
+            throw new \InvalidArgumentException('Finder::append() method wrong argument type.');
         }
 
         return $this;

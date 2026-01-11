@@ -36,6 +36,7 @@ class FileSessionHandler implements SessionHandlerInterface
      * @param  \Illuminate\Filesystem\Filesystem  $files
      * @param  string  $path
      * @param  int  $minutes
+     * @return void
      */
     public function __construct(Filesystem $files, $path, $minutes)
     {
@@ -111,10 +112,10 @@ class FileSessionHandler implements SessionHandlerInterface
     public function gc($lifetime): int
     {
         $files = Finder::create()
-            ->in($this->path)
-            ->files()
-            ->ignoreDotFiles(true)
-            ->date('<= now - '.$lifetime.' seconds');
+                    ->in($this->path)
+                    ->files()
+                    ->ignoreDotFiles(true)
+                    ->date('<= now - '.$lifetime.' seconds');
 
         $deletedSessions = 0;
 

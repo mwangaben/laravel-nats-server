@@ -2,7 +2,7 @@
 
 namespace Illuminate\Database\Schema;
 
-use Illuminate\Support\Stringable;
+use Illuminate\Support\Str;
 
 class ForeignIdColumnDefinition extends ColumnDefinition
 {
@@ -18,6 +18,7 @@ class ForeignIdColumnDefinition extends ColumnDefinition
      *
      * @param  \Illuminate\Database\Schema\Blueprint  $blueprint
      * @param  array  $attributes
+     * @return void
      */
     public function __construct(Blueprint $blueprint, $attributes = [])
     {
@@ -34,19 +35,16 @@ class ForeignIdColumnDefinition extends ColumnDefinition
      * @param  string|null  $indexName
      * @return \Illuminate\Database\Schema\ForeignKeyDefinition
      */
-    public function constrained($table = null, $column = null, $indexName = null)
+    public function constrained($table = null, $column = 'id', $indexName = null)
     {
-        $table ??= $this->table;
-        $column ??= $this->referencesModelColumn ?? 'id';
-
-        return $this->references($column, $indexName)->on($table ?? (new Stringable($this->name))->beforeLast('_'.$column)->plural());
+        return $this->references($column, $indexName)->on($table ?? Str::of($this->name)->beforeLast('_'.$column)->plural());
     }
 
     /**
      * Specify which column this foreign ID references on another table.
      *
      * @param  string  $column
-     * @param  string|null  $indexName
+     * @param  string  $indexName
      * @return \Illuminate\Database\Schema\ForeignKeyDefinition
      */
     public function references($column, $indexName = null)

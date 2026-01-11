@@ -2,7 +2,6 @@
 
 namespace Illuminate\Cache;
 
-use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
 
@@ -13,7 +12,7 @@ class RedisTagSet extends TagSet
      *
      * @param  string  $key
      * @param  int|null  $ttl
-     * @param  string|null  $updateWhen
+     * @param  string  $updateWhen
      * @return void
      */
     public function addEntry(string $key, ?int $ttl = null, $updateWhen = null)
@@ -36,29 +35,16 @@ class RedisTagSet extends TagSet
      */
     public function entries()
     {
-        $connection = $this->store->connection();
-
-        $defaultCursorValue = match (true) {
-            $connection instanceof PhpRedisConnection && version_compare(phpversion('redis'), '6.1.0', '>=') => null,
-            default => '0',
-        };
-
-        return new LazyCollection(function () use ($connection, $defaultCursorValue) {
+        return LazyCollection::make(function () {
             foreach ($this->tagIds() as $tagKey) {
-                $cursor = $defaultCursorValue;
+                $cursor = $defaultCursorValue = '0';
 
                 do {
-                    $results = $connection->zscan(
+                    [$cursor, $entries] = $this->store->connection()->zscan(
                         $this->store->getPrefix().$tagKey,
                         $cursor,
                         ['match' => '*', 'count' => 1000]
                     );
-
-                    if (! is_array($results)) {
-                        break;
-                    }
-
-                    [$cursor, $entries] = $results;
 
                     if (! is_array($entries)) {
                         break;
@@ -85,26 +71,17 @@ class RedisTagSet extends TagSet
      */
     public function flushStaleEntries()
     {
-        $flushStaleEntries = function ($pipe) {
+        $this->store->connection()->pipeline(function ($pipe) {
             foreach ($this->tagIds() as $tagKey) {
                 $pipe->zremrangebyscore($this->store->getPrefix().$tagKey, 0, Carbon::now()->getTimestamp());
             }
-        };
-
-        $connection = $this->store->connection();
-
-        if ($connection instanceof PhpRedisConnection) {
-            $flushStaleEntries($connection);
-        } else {
-            $connection->pipeline($flushStaleEntries);
-        }
+        });
     }
 
     /**
      * Flush the tag from the cache.
      *
      * @param  string  $name
-     * @return string
      */
     public function flushTag($name)
     {

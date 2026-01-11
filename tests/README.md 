@@ -1,0 +1,15 @@
+# NATS Broadcaster Tests
+
+## Test Structure
+
+- **Unit Tests**: Test individual components in isolation
+- **Feature Tests**: Test the package functionality with Laravel
+- **Integration Tests**: Test with real NATS server connection
+- **Console Tests**: Test the Artisan commands
+
+## Running Tests
+
+### 1. Install Dependencies
+
+```bash
+composer install

@@ -5,9 +5,7 @@ namespace Illuminate\Queue\Middleware;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Cache\RateLimiting\Unlimited;
 use Illuminate\Container\Container;
-use Illuminate\Support\Collection;
-
-use function Illuminate\Support\enum_value;
+use Illuminate\Support\Arr;
 
 class RateLimited
 {
@@ -26,13 +24,6 @@ class RateLimited
     protected $limiterName;
 
     /**
-     * The number of seconds before a job should be available again if the limit is exceeded.
-     *
-     * @var \DateTimeInterface|int|null
-     */
-    public $releaseAfter;
-
-    /**
      * Indicates if the job should be released if the limit is exceeded.
      *
      * @var bool
@@ -42,13 +33,14 @@ class RateLimited
     /**
      * Create a new middleware instance.
      *
-     * @param  \BackedEnum|\UnitEnum|string  $limiterName
+     * @param  string  $limiterName
+     * @return void
      */
     public function __construct($limiterName)
     {
         $this->limiter = Container::getInstance()->make(RateLimiter::class);
 
-        $this->limiterName = (string) enum_value($limiterName);
+        $this->limiterName = $limiterName;
     }
 
     /**
@@ -73,11 +65,11 @@ class RateLimited
         return $this->handleJob(
             $job,
             $next,
-            Collection::wrap($limiterResponse)->map(function ($limit) {
+            collect(Arr::wrap($limiterResponse))->map(function ($limit) {
                 return (object) [
                     'key' => md5($this->limiterName.$limit->key),
                     'maxAttempts' => $limit->maxAttempts,
-                    'decaySeconds' => $limit->decaySeconds,
+                    'decayMinutes' => $limit->decayMinutes,
                 ];
             })->all()
         );
@@ -96,27 +88,14 @@ class RateLimited
         foreach ($limits as $limit) {
             if ($this->limiter->tooManyAttempts($limit->key, $limit->maxAttempts)) {
                 return $this->shouldRelease
-                    ? $job->release($this->releaseAfter ?: $this->getTimeUntilNextRetry($limit->key))
-                    : false;
+                        ? $job->release($this->getTimeUntilNextRetry($limit->key))
+                        : false;
             }
 
-            $this->limiter->hit($limit->key, $limit->decaySeconds);
+            $this->limiter->hit($limit->key, $limit->decayMinutes * 60);
         }
 
         return $next($job);
-    }
-
-    /**
-     * Set the delay (in seconds) to release the job back to the queue.
-     *
-     * @param  \DateTimeInterface|int  $releaseAfter
-     * @return $this
-     */
-    public function releaseAfter($releaseAfter)
-    {
-        $this->releaseAfter = $releaseAfter;
-
-        return $this;
     }
 
     /**

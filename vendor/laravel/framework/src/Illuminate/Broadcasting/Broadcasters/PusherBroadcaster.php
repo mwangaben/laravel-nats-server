@@ -24,6 +24,7 @@ class PusherBroadcaster extends Broadcaster
      * Create a new broadcaster instance.
      *
      * @param  \Pusher\Pusher  $pusher
+     * @return void
      */
     public function __construct(Pusher $pusher)
     {
@@ -109,8 +110,8 @@ class PusherBroadcaster extends Broadcaster
         $user = $this->retrieveUser($request, $channelName);
 
         $broadcastIdentifier = method_exists($user, 'getAuthIdentifierForBroadcasting')
-            ? $user->getAuthIdentifierForBroadcasting()
-            : $user->getAuthIdentifier();
+                        ? $user->getAuthIdentifierForBroadcasting()
+                        : $user->getAuthIdentifier();
 
         return $this->decodePusherResponse(
             $request,
@@ -134,7 +135,7 @@ class PusherBroadcaster extends Broadcaster
         }
 
         return response()->json(json_decode($response, true))
-            ->withCallback($request->callback);
+                    ->withCallback($request->callback);
     }
 
     /**
@@ -153,7 +154,7 @@ class PusherBroadcaster extends Broadcaster
 
         $parameters = $socket !== null ? ['socket_id' => $socket] : [];
 
-        $channels = new Collection($this->formatChannels($channels));
+        $channels = Collection::make($this->formatChannels($channels));
 
         try {
             $channels->chunk(100)->each(function ($channels) use ($event, $payload, $parameters) {

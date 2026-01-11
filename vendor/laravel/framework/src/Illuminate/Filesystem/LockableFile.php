@@ -32,6 +32,7 @@ class LockableFile
      *
      * @param  string  $path
      * @param  string  $mode
+     * @return void
      */
     public function __construct($path, $mode)
     {
@@ -143,7 +144,7 @@ class LockableFile
      * Get an exclusive lock on the file.
      *
      * @param  bool  $block
-     * @return $this
+     * @return bool
      *
      * @throws \Illuminate\Contracts\Filesystem\LockTimeoutException
      */

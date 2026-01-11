@@ -168,7 +168,7 @@ class Filesystem
             );
         }
 
-        return new LazyCollection(function () use ($path) {
+        return LazyCollection::make(function () use ($path) {
             $file = new SplFileObject($path);
 
             $file->setFlags(SplFileObject::DROP_NEW_LINE);
@@ -184,7 +184,7 @@ class Filesystem
      *
      * @param  string  $path
      * @param  string  $algorithm
-     * @return string|false
+     * @return string
      */
     public function hash($path, $algorithm = 'md5')
     {
@@ -352,11 +352,7 @@ class Filesystem
     public function link($target, $link)
     {
         if (! windows_os()) {
-            if (function_exists('symlink')) {
-                return symlink($target, $link);
-            } else {
-                return exec('ln -s '.escapeshellarg($target).' '.escapeshellarg($link)) !== false;
-            }
+            return symlink($target, $link);
         }
 
         $mode = $this->isDirectory($target) ? 'J' : 'H';
@@ -431,7 +427,7 @@ class Filesystem
     }
 
     /**
-     * Guess the file extension from the MIME type of a given file.
+     * Guess the file extension from the mime-type of a given file.
      *
      * @param  string  $path
      * @return string|null
@@ -461,7 +457,7 @@ class Filesystem
     }
 
     /**
-     * Get the MIME type of a given file.
+     * Get the mime-type of a given file.
      *
      * @param  string  $path
      * @return string|false
@@ -547,9 +543,9 @@ class Filesystem
      */
     public function hasSameHash($firstFile, $secondFile)
     {
-        $hash = @hash_file('xxh128', $firstFile);
+        $hash = @md5_file($firstFile);
 
-        return $hash && hash_equals($hash, (string) @hash_file('xxh128', $secondFile));
+        return $hash && hash_equals($hash, (string) @md5_file($secondFile));
     }
 
     /**
@@ -582,10 +578,10 @@ class Filesystem
      * @param  bool  $hidden
      * @return \Symfony\Component\Finder\SplFileInfo[]
      */
-    public function files($directory, $hidden = false, array|string|int $depth = 0)
+    public function files($directory, $hidden = false)
     {
         return iterator_to_array(
-            Finder::create()->files()->ignoreDotFiles(! $hidden)->in($directory)->depth($depth)->sortByName(),
+            Finder::create()->files()->ignoreDotFiles(! $hidden)->in($directory)->depth(0)->sortByName(),
             false
         );
     }
@@ -599,7 +595,10 @@ class Filesystem
      */
     public function allFiles($directory, $hidden = false)
     {
-        return $this->files($directory, $hidden, []);
+        return iterator_to_array(
+            Finder::create()->files()->ignoreDotFiles(! $hidden)->in($directory)->sortByName(),
+            false
+        );
     }
 
     /**
@@ -608,25 +607,15 @@ class Filesystem
      * @param  string  $directory
      * @return array
      */
-    public function directories($directory, array|string|int $depth = 0)
+    public function directories($directory)
     {
         $directories = [];
 
-        foreach (Finder::create()->in($directory)->directories()->depth($depth)->sortByName() as $dir) {
+        foreach (Finder::create()->in($directory)->directories()->depth(0)->sortByName() as $dir) {
             $directories[] = $dir->getPathname();
         }
 
         return $directories;
-    }
-
-    /**
-     * Get all the directories within a given directory (recursive).
-     *
-     * @return array
-     */
-    public function allDirectories(string $directory): array
-    {
-        return $this->directories($directory, []);
     }
 
     /**

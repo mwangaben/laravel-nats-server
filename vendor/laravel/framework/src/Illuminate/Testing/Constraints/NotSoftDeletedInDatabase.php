@@ -41,6 +41,7 @@ class NotSoftDeletedInDatabase extends Constraint
      * @param  \Illuminate\Database\Connection  $database
      * @param  array  $data
      * @param  string  $deletedAtColumn
+     * @return void
      */
     public function __construct(Connection $database, array $data, string $deletedAtColumn)
     {
@@ -58,9 +59,9 @@ class NotSoftDeletedInDatabase extends Constraint
     public function matches($table): bool
     {
         return $this->database->table($table)
-            ->where($this->data)
-            ->whereNull($this->deletedAtColumn)
-            ->exists();
+                ->where($this->data)
+                ->whereNull($this->deletedAtColumn)
+                ->count() > 0;
     }
 
     /**

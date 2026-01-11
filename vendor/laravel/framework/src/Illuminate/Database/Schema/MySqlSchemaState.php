@@ -55,7 +55,7 @@ class MySqlSchemaState extends SchemaState
     protected function appendMigrationData(string $path)
     {
         $process = $this->executeDumpProcess($this->makeProcess(
-            $this->baseDumpCommand().' '.$this->getMigrationTable().' --no-create-info --skip-extended-insert --skip-routines --compact --complete-insert'
+            $this->baseDumpCommand().' '.$this->migrationTable.' --no-create-info --skip-extended-insert --skip-routines --compact --complete-insert'
         ), null, array_merge($this->baseVariables($this->connection->getConfig()), [
             //
         ]));
@@ -108,18 +108,12 @@ class MySqlSchemaState extends SchemaState
         $config = $this->connection->getConfig();
 
         $value .= $config['unix_socket'] ?? false
-            ? ' --socket="${:LARAVEL_LOAD_SOCKET}"'
-            : ' --host="${:LARAVEL_LOAD_HOST}" --port="${:LARAVEL_LOAD_PORT}"';
+                        ? ' --socket="${:LARAVEL_LOAD_SOCKET}"'
+                        : ' --host="${:LARAVEL_LOAD_HOST}" --port="${:LARAVEL_LOAD_PORT}"';
 
-        /** @phpstan-ignore class.notFound */
-        if (isset($config['options'][PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA])) {
+        if (isset($config['options'][\PDO::MYSQL_ATTR_SSL_CA])) {
             $value .= ' --ssl-ca="${:LARAVEL_LOAD_SSL_CA}"';
         }
-
-        // if (isset($config['options'][\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT]) &&
-        //     $config['options'][\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] === false) {
-        //     $value .= ' --ssl=off';
-        // }
 
         return $value;
     }
@@ -141,7 +135,7 @@ class MySqlSchemaState extends SchemaState
             'LARAVEL_LOAD_USER' => $config['username'],
             'LARAVEL_LOAD_PASSWORD' => $config['password'] ?? '',
             'LARAVEL_LOAD_DATABASE' => $config['database'],
-            'LARAVEL_LOAD_SSL_CA' => $config['options'][PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA] ?? '', // @phpstan-ignore class.notFound
+            'LARAVEL_LOAD_SSL_CA' => $config['options'][\PDO::MYSQL_ATTR_SSL_CA] ?? '',
         ];
     }
 
@@ -151,28 +145,23 @@ class MySqlSchemaState extends SchemaState
      * @param  \Symfony\Component\Process\Process  $process
      * @param  callable  $output
      * @param  array  $variables
-     * @param  int  $depth
      * @return \Symfony\Component\Process\Process
      */
-    protected function executeDumpProcess(Process $process, $output, array $variables, int $depth = 0)
+    protected function executeDumpProcess(Process $process, $output, array $variables)
     {
-        if ($depth > 30) {
-            throw new Exception('Dump execution exceeded maximum depth of 30.');
-        }
-
         try {
             $process->setTimeout(null)->mustRun($output, $variables);
         } catch (Exception $e) {
             if (Str::contains($e->getMessage(), ['column-statistics', 'column_statistics'])) {
                 return $this->executeDumpProcess(Process::fromShellCommandLine(
                     str_replace(' --column-statistics=0', '', $process->getCommandLine())
-                ), $output, $variables, $depth + 1);
+                ), $output, $variables);
             }
 
             if (str_contains($e->getMessage(), 'set-gtid-purged')) {
                 return $this->executeDumpProcess(Process::fromShellCommandLine(
                     str_replace(' --set-gtid-purged=OFF', '', $process->getCommandLine())
-                ), $output, $variables, $depth + 1);
+                ), $output, $variables);
             }
 
             throw $e;

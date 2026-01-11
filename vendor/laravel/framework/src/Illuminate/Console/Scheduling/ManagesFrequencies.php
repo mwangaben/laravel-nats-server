@@ -5,8 +5,6 @@ namespace Illuminate\Console\Scheduling;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
 
-use function Illuminate\Support\enum_value;
-
 trait ManagesFrequencies
 {
     /**
@@ -145,7 +143,7 @@ trait ManagesFrequencies
     /**
      * Schedule the event to run multiple times per minute.
      *
-     * @param  int<0, 59>  $seconds
+     * @param  int  $seconds
      * @return $this
      */
     protected function repeatEvery($seconds)
@@ -236,7 +234,7 @@ trait ManagesFrequencies
      */
     public function everyThirtyMinutes()
     {
-        return $this->spliceIntoPosition(1, '*/30');
+        return $this->spliceIntoPosition(1, '0,30');
     }
 
     /**
@@ -252,7 +250,7 @@ trait ManagesFrequencies
     /**
      * Schedule the event to run hourly at a given offset in the hour.
      *
-     * @param  array|string|int<0, 59>|int<0, 59>[]  $offset
+     * @param  array|string|int  $offset
      * @return $this
      */
     public function hourlyAt($offset)
@@ -347,7 +345,7 @@ trait ManagesFrequencies
         $segments = explode(':', $time);
 
         return $this->hourBasedSchedule(
-            count($segments) >= 2 ? (int) $segments[1] : '0',
+            count($segments) === 2 ? (int) $segments[1] : '0',
             (int) $segments[0]
         );
     }
@@ -355,8 +353,8 @@ trait ManagesFrequencies
     /**
      * Schedule the event to run twice daily.
      *
-     * @param  int<0, 23>  $first
-     * @param  int<0, 23>  $second
+     * @param  int  $first
+     * @param  int  $second
      * @return $this
      */
     public function twiceDaily($first = 1, $second = 13)
@@ -367,9 +365,9 @@ trait ManagesFrequencies
     /**
      * Schedule the event to run twice daily at a given offset.
      *
-     * @param  int<0, 23>  $first
-     * @param  int<0, 23>  $second
-     * @param  int<0, 59>  $offset
+     * @param  int  $first
+     * @param  int  $second
+     * @param  int  $offset
      * @return $this
      */
     public function twiceDailyAt($first = 1, $second = 13, $offset = 0)
@@ -382,8 +380,8 @@ trait ManagesFrequencies
     /**
      * Schedule the event to run at the given minutes and hours.
      *
-     * @param  array|string|int<0, 59>  $minutes
-     * @param  array|string|int<0, 23>  $hours
+     * @param  array|string|int  $minutes
+     * @param  array|string|int  $hours
      * @return $this
      */
     protected function hourBasedSchedule($minutes, $hours)
@@ -393,7 +391,7 @@ trait ManagesFrequencies
         $hours = is_array($hours) ? implode(',', $hours) : $hours;
 
         return $this->spliceIntoPosition(1, $minutes)
-            ->spliceIntoPosition(2, $hours);
+                    ->spliceIntoPosition(2, $hours);
     }
 
     /**
@@ -494,14 +492,14 @@ trait ManagesFrequencies
     public function weekly()
     {
         return $this->spliceIntoPosition(1, 0)
-            ->spliceIntoPosition(2, 0)
-            ->spliceIntoPosition(5, 0);
+                    ->spliceIntoPosition(2, 0)
+                    ->spliceIntoPosition(5, 0);
     }
 
     /**
      * Schedule the event to run weekly on a given day and time.
      *
-     * @param  mixed  $dayOfWeek
+     * @param  array|mixed  $dayOfWeek
      * @param  string  $time
      * @return $this
      */
@@ -520,14 +518,14 @@ trait ManagesFrequencies
     public function monthly()
     {
         return $this->spliceIntoPosition(1, 0)
-            ->spliceIntoPosition(2, 0)
-            ->spliceIntoPosition(3, 1);
+                    ->spliceIntoPosition(2, 0)
+                    ->spliceIntoPosition(3, 1);
     }
 
     /**
      * Schedule the event to run monthly on a given day and time.
      *
-     * @param  int<1, 31>  $dayOfMonth
+     * @param  int  $dayOfMonth
      * @param  string  $time
      * @return $this
      */
@@ -541,8 +539,8 @@ trait ManagesFrequencies
     /**
      * Schedule the event to run twice monthly at a given time.
      *
-     * @param  int<1, 31>  $first
-     * @param  int<1, 31>  $second
+     * @param  int  $first
+     * @param  int  $second
      * @param  string  $time
      * @return $this
      */
@@ -569,21 +567,6 @@ trait ManagesFrequencies
     }
 
     /**
-     * Schedule the event to run on specific days of the month.
-     *
-     * @param  array<int<1, 31>>|int<1, 31>  ...$days
-     * @return $this
-     */
-    public function daysOfMonth(...$days)
-    {
-        $days = count($days) === 1 && is_array($days[0]) ? $days[0] : $days;
-
-        $this->dailyAt('0:0');
-
-        return $this->spliceIntoPosition(3, implode(',', $days));
-    }
-
-    /**
      * Schedule the event to run quarterly.
      *
      * @return $this
@@ -591,9 +574,9 @@ trait ManagesFrequencies
     public function quarterly()
     {
         return $this->spliceIntoPosition(1, 0)
-            ->spliceIntoPosition(2, 0)
-            ->spliceIntoPosition(3, 1)
-            ->spliceIntoPosition(4, '1-12/3');
+                    ->spliceIntoPosition(2, 0)
+                    ->spliceIntoPosition(3, 1)
+                    ->spliceIntoPosition(4, '1-12/3');
     }
 
     /**
@@ -608,7 +591,7 @@ trait ManagesFrequencies
         $this->dailyAt($time);
 
         return $this->spliceIntoPosition(3, $dayOfQuarter)
-            ->spliceIntoPosition(4, '1-12/3');
+                    ->spliceIntoPosition(4, '1-12/3');
     }
 
     /**
@@ -619,16 +602,16 @@ trait ManagesFrequencies
     public function yearly()
     {
         return $this->spliceIntoPosition(1, 0)
-            ->spliceIntoPosition(2, 0)
-            ->spliceIntoPosition(3, 1)
-            ->spliceIntoPosition(4, 1);
+                    ->spliceIntoPosition(2, 0)
+                    ->spliceIntoPosition(3, 1)
+                    ->spliceIntoPosition(4, 1);
     }
 
     /**
      * Schedule the event to run yearly on a given month, day, and time.
      *
      * @param  int  $month
-     * @param  int<1, 31>|string  $dayOfMonth
+     * @param  int|string  $dayOfMonth
      * @param  string  $time
      * @return $this
      */
@@ -637,13 +620,13 @@ trait ManagesFrequencies
         $this->dailyAt($time);
 
         return $this->spliceIntoPosition(3, $dayOfMonth)
-            ->spliceIntoPosition(4, $month);
+                    ->spliceIntoPosition(4, $month);
     }
 
     /**
      * Set the days of the week the command should run on.
      *
-     * @param  mixed  $days
+     * @param  array|mixed  $days
      * @return $this
      */
     public function days($days)
@@ -656,12 +639,12 @@ trait ManagesFrequencies
     /**
      * Set the timezone the date should be evaluated on.
      *
-     * @param  \UnitEnum|\DateTimeZone|string  $timezone
+     * @param  \DateTimeZone|string  $timezone
      * @return $this
      */
     public function timezone($timezone)
     {
-        $this->timezone = enum_value($timezone);
+        $this->timezone = $timezone;
 
         return $this;
     }
@@ -670,7 +653,7 @@ trait ManagesFrequencies
      * Splice the given value into the given position of the expression.
      *
      * @param  int  $position
-     * @param  string|int  $value
+     * @param  string  $value
      * @return $this
      */
     protected function spliceIntoPosition($position, $value)

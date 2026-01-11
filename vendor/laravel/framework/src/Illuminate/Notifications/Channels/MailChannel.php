@@ -10,7 +10,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Symfony\Component\Mailer\Header\MetadataHeader;
 use Symfony\Component\Mailer\Header\TagHeader;
@@ -36,6 +35,7 @@ class MailChannel
      *
      * @param  \Illuminate\Contracts\Mail\Factory  $mailer
      * @param  \Illuminate\Mail\Markdown  $markdown
+     * @return void
      */
     public function __construct(MailFactory $mailer, Markdown $markdown)
     {
@@ -262,13 +262,11 @@ class MailChannel
             $recipients = [$recipients];
         }
 
-        return (new Collection($recipients))
-            ->mapWithKeys(function ($recipient, $email) {
-                return is_numeric($email)
+        return collect($recipients)->mapWithKeys(function ($recipient, $email) {
+            return is_numeric($email)
                     ? [$email => (is_string($recipient) ? $recipient : $recipient->email)]
                     : [$email => $recipient];
-            })
-            ->all();
+        })->all();
     }
 
     /**

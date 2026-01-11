@@ -7,14 +7,12 @@ use Illuminate\Contracts\Database\Eloquent\Castable;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Support\Collection;
 
-use function Illuminate\Support\enum_value;
-
 class AsEnumArrayObject implements Castable
 {
     /**
      * Get the caster class to use when casting from / to this cast target.
      *
-     * @template TEnum of \UnitEnum
+     * @template TEnum
      *
      * @param  array{class-string<TEnum>}  $arguments
      * @return \Illuminate\Contracts\Database\Eloquent\CastsAttributes<\Illuminate\Database\Eloquent\Casts\ArrayObject<array-key, TEnum>, iterable<TEnum>>
@@ -68,9 +66,9 @@ class AsEnumArrayObject implements Castable
 
             public function serialize($model, string $key, $value, array $attributes)
             {
-                return (new Collection($value->getArrayCopy()))
-                    ->map(fn ($enum) => $this->getStorableEnumValue($enum))
-                    ->toArray();
+                return (new Collection($value->getArrayCopy()))->map(function ($enum) {
+                    return $this->getStorableEnumValue($enum);
+                })->toArray();
             }
 
             protected function getStorableEnumValue($enum)
@@ -79,19 +77,8 @@ class AsEnumArrayObject implements Castable
                     return $enum;
                 }
 
-                return enum_value($enum);
+                return $enum instanceof BackedEnum ? $enum->value : $enum->name;
             }
         };
-    }
-
-    /**
-     * Specify the Enum for the cast.
-     *
-     * @param  class-string  $class
-     * @return string
-     */
-    public static function of($class)
-    {
-        return static::class.':'.$class;
     }
 }

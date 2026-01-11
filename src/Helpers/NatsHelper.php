@@ -2,14 +2,12 @@
 
 namespace Mwangaben\NatsBroadcaster\Helpers;
 
-use Basis\Nats\Client;
-use Basis\Nats\Consumer\Consumer;
-use Basis\Nats\Stream\Stream;
+use Nats\Client;
+use Exception;
 
 class NatsHelper
 {
     protected Client $client;
-    protected ?Stream $stream = null;
 
     public function __construct(Client $client)
     {
@@ -18,50 +16,29 @@ class NatsHelper
 
     public function withJetStream(string $streamName = 'broadcast'): self
     {
-        $this->client->getApi()->getStream($streamName);
-        $this->stream = $this->client->getApi()->getStream($streamName);
-
-        if (!$this->stream->exists()) {
-            $this->stream->create();
-        }
+        // Note: mwangaben/nats-php-client may not have direct JetStream support
+        // You might need to implement this differently or add JetStream support
+        // For now, we'll use regular NATS features
 
         return $this;
     }
 
-    public function createConsumer(string $consumerName = 'broadcast-consumer'): Consumer
+    public function createConsumer(string $consumerName = 'broadcast-consumer')
     {
-        if (!$this->stream) {
-            throw new \RuntimeException('Stream not initialized. Call withJetStream() first.');
-        }
-
-        $consumer = $this->stream->getConsumer($consumerName);
-
-        if (!$consumer->exists()) {
-            $consumer->create();
-        }
-
-        return $consumer;
+        // Placeholder for consumer creation
+        // You'll need to implement JetStream consumer logic if needed
+        return null;
     }
 
     public function publishToStream(string $subject, array $data): void
     {
-        if (!$this->stream) {
-            throw new \RuntimeException('Stream not initialized. Call withJetStream() first.');
-        }
-
-        $this->stream->publish($subject, json_encode($data));
+        // For now, use regular publish
+        $this->client->publish($subject, json_encode($data));
     }
 
     public function getConsumerMessages(string $consumerName, int $batch = 10): array
     {
-        $consumer = $this->createConsumer($consumerName);
-        $messages = [];
-
-        $consumer->handle(function ($message) use (&$messages, $batch) {
-            $messages[] = json_decode($message->getBody(), true);
-            return count($messages) < $batch;
-        });
-
-        return $messages;
+        // Placeholder - implement if using JetStream
+        return [];
     }
 }

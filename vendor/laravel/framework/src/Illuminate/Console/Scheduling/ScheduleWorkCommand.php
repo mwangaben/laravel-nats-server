@@ -2,7 +2,6 @@
 
 namespace Illuminate\Console\Scheduling;
 
-use Illuminate\Console\Application;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\ProcessUtils;
@@ -18,9 +17,7 @@ class ScheduleWorkCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'schedule:work
-        {--run-output-file= : The file to direct <info>schedule:run</info> output to}
-        {--whisper : Do not output message indicating that no jobs were ready to run}';
+    protected $signature = 'schedule:work {--run-output-file= : The file to direct <info>schedule:run</info> output to}';
 
     /**
      * The console command description.
@@ -32,22 +29,22 @@ class ScheduleWorkCommand extends Command
     /**
      * Execute the console command.
      *
-     * @return never
+     * @return void
      */
     public function handle()
     {
         $this->components->info(
-            'Running scheduled tasks.',
-            $this->getLaravel()->environment('local') ? OutputInterface::VERBOSITY_NORMAL : OutputInterface::VERBOSITY_VERBOSE
+            'Running scheduled tasks every minute.',
+            $this->getLaravel()->isLocal() ? OutputInterface::VERBOSITY_NORMAL : OutputInterface::VERBOSITY_VERBOSE
         );
 
         [$lastExecutionStartedAt, $executions] = [Carbon::now()->subMinutes(10), []];
 
-        $command = Application::formatCommandString('schedule:run');
-
-        if ($this->option('whisper')) {
-            $command .= ' --whisper';
-        }
+        $command = implode(' ', array_map(fn ($arg) => ProcessUtils::escapeArgument($arg), [
+            PHP_BINARY,
+            defined('ARTISAN_BINARY') ? ARTISAN_BINARY : 'artisan',
+            'schedule:run',
+        ]));
 
         if ($this->option('run-output-file')) {
             $command .= ' >> '.ProcessUtils::escapeArgument($this->option('run-output-file')).' 2>&1';

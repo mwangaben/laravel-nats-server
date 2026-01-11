@@ -4,6 +4,7 @@ namespace Illuminate\Database;
 
 use Closure;
 use Exception;
+use Illuminate\Database\PDO\SqlServerDriver;
 use Illuminate\Database\Query\Grammars\SqlServerGrammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\SqlServerProcessor;
 use Illuminate\Database\Schema\Grammars\SqlServerGrammar as SchemaGrammar;
@@ -14,14 +15,6 @@ use Throwable;
 
 class SqlServerConnection extends Connection
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function getDriverTitle()
-    {
-        return 'SQL Server';
-    }
-
     /**
      * Execute a Closure within a transaction.
      *
@@ -83,7 +76,7 @@ class SqlServerConnection extends Connection
      */
     protected function isUniqueConstraintError(Exception $exception)
     {
-        return (bool) preg_match('#Cannot insert duplicate key row in object#i', $exception->getMessage());
+        return boolval(preg_match('#Cannot insert duplicate key row in object#i', $exception->getMessage()));
     }
 
     /**
@@ -93,7 +86,9 @@ class SqlServerConnection extends Connection
      */
     protected function getDefaultQueryGrammar()
     {
-        return new QueryGrammar($this);
+        ($grammar = new QueryGrammar)->setConnection($this);
+
+        return $this->withTablePrefix($grammar);
     }
 
     /**
@@ -117,7 +112,9 @@ class SqlServerConnection extends Connection
      */
     protected function getDefaultSchemaGrammar()
     {
-        return new SchemaGrammar($this);
+        ($grammar = new SchemaGrammar)->setConnection($this);
+
+        return $this->withTablePrefix($grammar);
     }
 
     /**
@@ -141,5 +138,15 @@ class SqlServerConnection extends Connection
     protected function getDefaultPostProcessor()
     {
         return new SqlServerProcessor;
+    }
+
+    /**
+     * Get the Doctrine DBAL driver.
+     *
+     * @return \Illuminate\Database\PDO\SqlServerDriver
+     */
+    protected function getDoctrineDriver()
+    {
+        return new SqlServerDriver;
     }
 }

@@ -5,9 +5,6 @@ namespace Illuminate\Auth\Middleware;
 use Closure;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
-
-use function Illuminate\Support\enum_value;
 
 class Authorize
 {
@@ -22,6 +19,7 @@ class Authorize
      * Create a new middleware instance.
      *
      * @param  \Illuminate\Contracts\Auth\Access\Gate  $gate
+     * @return void
      */
     public function __construct(Gate $gate)
     {
@@ -31,13 +29,13 @@ class Authorize
     /**
      * Specify the ability and models for the middleware.
      *
-     * @param  \UnitEnum|string  $ability
+     * @param  string  $ability
      * @param  string  ...$models
      * @return string
      */
     public static function using($ability, ...$models)
     {
-        return static::class.':'.implode(',', [enum_value($ability), ...$models]);
+        return static::class.':'.implode(',', [$ability, ...$models]);
     }
 
     /**
@@ -64,7 +62,7 @@ class Authorize
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  array|null  $models
-     * @return array
+     * @return \Illuminate\Database\Eloquent\Model|array|string
      */
     protected function getGateArguments($request, $models)
     {
@@ -72,9 +70,9 @@ class Authorize
             return [];
         }
 
-        return (new Collection($models))
-            ->map(fn ($model) => $model instanceof Model ? $model : $this->getModel($request, $model))
-            ->all();
+        return collect($models)->map(function ($model) use ($request) {
+            return $model instanceof Model ? $model : $this->getModel($request, $model);
+        })->all();
     }
 
     /**

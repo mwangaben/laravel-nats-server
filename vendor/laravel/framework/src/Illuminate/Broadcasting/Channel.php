@@ -3,9 +3,8 @@
 namespace Illuminate\Broadcasting;
 
 use Illuminate\Contracts\Broadcasting\HasBroadcastChannel;
-use Stringable;
 
-class Channel implements Stringable
+class Channel
 {
     /**
      * The channel's name.
@@ -18,6 +17,7 @@ class Channel implements Stringable
      * Create a new channel instance.
      *
      * @param  \Illuminate\Contracts\Broadcasting\HasBroadcastChannel|string  $name
+     * @return void
      */
     public function __construct($name)
     {

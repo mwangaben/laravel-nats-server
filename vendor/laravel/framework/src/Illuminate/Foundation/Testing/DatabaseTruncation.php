@@ -5,8 +5,6 @@ namespace Illuminate\Foundation\Testing;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\Traits\CanConfigureMigrationCommands;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 
 trait DatabaseTruncation
 {
@@ -62,7 +60,7 @@ trait DatabaseTruncation
     {
         $database = $this->app->make('db');
 
-        (new Collection($this->connectionsToTruncate()))
+        collect($this->connectionsToTruncate())
             ->each(function ($name) use ($database) {
                 $connection = $database->connection($name);
 
@@ -85,53 +83,32 @@ trait DatabaseTruncation
 
         $connection->unsetEventDispatcher();
 
-        (new Collection($this->getAllTablesForConnection($connection, $name)))
+        collect(static::$allTables[$name] ??= $connection->getDoctrineSchemaManager()->listTableNames())
             ->when(
-                $this->tablesToTruncate($connection, $name),
-                function (Collection $tables, array $tablesToTruncate) {
-                    return $tables->filter(fn (array $table) => $this->tableExistsIn($table, $tablesToTruncate));
-                },
-                function (Collection $tables) use ($connection, $name) {
-                    $exceptTables = $this->exceptTables($connection, $name);
-
-                    return $tables->reject(fn (array $table) => $this->tableExistsIn($table, $exceptTables));
-                }
+                property_exists($this, 'tablesToTruncate'),
+                fn ($tables) => $tables->intersect($this->tablesToTruncate),
+                fn ($tables) => $tables->diff($this->exceptTables($name))
             )
-            ->each(function (array $table) use ($connection) {
-                $connection->withoutTablePrefix(function ($connection) use ($table) {
-                    $table = $connection->table($table['schema_qualified_name']);
-
-                    if ($table->exists()) {
-                        $table->truncate();
-                    }
-                });
-            });
+            ->filter(fn ($table) => $connection->table($this->withoutTablePrefix($connection, $table))->exists())
+            ->each(fn ($table) => $connection->table($this->withoutTablePrefix($connection, $table))->truncate());
 
         $connection->setEventDispatcher($dispatcher);
     }
 
     /**
-     * Get all the tables that belong to the connection.
+     * Remove the table prefix from a table name, if it exists.
+     *
+     * @param  \Illuminate\Database\ConnectionInterface  $connection
+     * @param  string  $table
+     * @return string
      */
-    protected function getAllTablesForConnection(ConnectionInterface $connection, ?string $name): array
+    protected function withoutTablePrefix(ConnectionInterface $connection, string $table)
     {
-        if (isset(static::$allTables[$name])) {
-            return static::$allTables[$name];
-        }
+        $prefix = $connection->getTablePrefix();
 
-        $schema = $connection->getSchemaBuilder();
-
-        return static::$allTables[$name] = Arr::from($schema->getTables($schema->getCurrentSchemaListing()));
-    }
-
-    /**
-     * Determine if a table exists in the given list, with or without its schema.
-     */
-    protected function tableExistsIn(array $table, array $tables): bool
-    {
-        return $table['schema']
-            ? ! empty(array_intersect([$table['name'], $table['schema_qualified_name']], $tables))
-            : in_array($table['name'], $tables);
+        return strpos($table, $prefix) === 0
+            ? substr($table, strlen($prefix))
+            : $table;
     }
 
     /**
@@ -142,36 +119,34 @@ trait DatabaseTruncation
     protected function connectionsToTruncate(): array
     {
         return property_exists($this, 'connectionsToTruncate')
-            ? $this->connectionsToTruncate
-            : [null];
-    }
-
-    /**
-     * Get the tables that should be truncated.
-     */
-    protected function tablesToTruncate(ConnectionInterface $connection, ?string $connectionName): ?array
-    {
-        return property_exists($this, 'tablesToTruncate') && is_array($this->tablesToTruncate)
-            ? $this->tablesToTruncate[$connectionName] ?? $this->tablesToTruncate
-            : null;
+                    ? $this->connectionsToTruncate : [null];
     }
 
     /**
      * Get the tables that should not be truncated.
+     *
+     * @param  string|null  $connectionName
+     * @return array
      */
-    protected function exceptTables(ConnectionInterface $connection, ?string $connectionName): array
+    protected function exceptTables(?string $connectionName): array
     {
-        $migrations = $this->app['config']->get('database.migrations');
+        if (property_exists($this, 'exceptTables')) {
+            $migrationsTable = $this->app['config']->get('database.migrations');
 
-        $migrationsTable = is_array($migrations) ? ($migrations['table'] ?? 'migrations') : $migrations;
-        $migrationsTable = $connection->getTablePrefix().$migrationsTable;
+            if (array_is_list($this->exceptTables ?? [])) {
+                return array_merge(
+                    $this->exceptTables ?? [],
+                    [$migrationsTable],
+                );
+            }
 
-        return property_exists($this, 'exceptTables') && is_array($this->exceptTables)
-            ? array_merge(
-                $this->exceptTables[$connectionName] ?? $this->exceptTables,
+            return array_merge(
+                $this->exceptTables[$connectionName] ?? [],
                 [$migrationsTable],
-            )
-            : [$migrationsTable];
+            );
+        }
+
+        return [$this->app['config']->get('database.migrations')];
     }
 
     /**

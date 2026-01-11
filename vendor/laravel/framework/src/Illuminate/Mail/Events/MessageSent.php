@@ -4,7 +4,6 @@ namespace Illuminate\Mail\Events;
 
 use Exception;
 use Illuminate\Mail\SentMessage;
-use Illuminate\Support\Collection;
 
 /**
  * @property \Symfony\Component\Mime\Email $message
@@ -12,15 +11,30 @@ use Illuminate\Support\Collection;
 class MessageSent
 {
     /**
+     * The message that was sent.
+     *
+     * @var \Illuminate\Mail\SentMessage
+     */
+    public $sent;
+
+    /**
+     * The message data.
+     *
+     * @var array
+     */
+    public $data;
+
+    /**
      * Create a new event instance.
      *
-     * @param  \Illuminate\Mail\SentMessage  $sent  The message that was sent.
-     * @param  array  $data  The message data.
+     * @param  \Illuminate\Mail\SentMessage  $message
+     * @param  array  $data
+     * @return void
      */
-    public function __construct(
-        public SentMessage $sent,
-        public array $data = [],
-    ) {
+    public function __construct(SentMessage $message, array $data = [])
+    {
+        $this->sent = $message;
+        $this->data = $data;
     }
 
     /**
@@ -30,7 +44,7 @@ class MessageSent
      */
     public function __serialize()
     {
-        $hasAttachments = (new Collection($this->message->getAttachments()))->isNotEmpty();
+        $hasAttachments = collect($this->message->getAttachments())->isNotEmpty();
 
         return [
             'sent' => $this->sent,

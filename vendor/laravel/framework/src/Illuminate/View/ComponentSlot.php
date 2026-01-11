@@ -4,9 +4,8 @@ namespace Illuminate\View;
 
 use Illuminate\Contracts\Support\Htmlable;
 use InvalidArgumentException;
-use Stringable;
 
-class ComponentSlot implements Htmlable, Stringable
+class ComponentSlot implements Htmlable
 {
     /**
      * The slot attribute bag.
@@ -27,6 +26,7 @@ class ComponentSlot implements Htmlable, Stringable
      *
      * @param  string  $contents
      * @param  array  $attributes
+     * @return void
      */
     public function __construct($contents = '', $attributes = [])
     {

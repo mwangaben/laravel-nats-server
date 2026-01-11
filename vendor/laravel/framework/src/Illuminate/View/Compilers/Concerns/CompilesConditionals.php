@@ -138,17 +138,6 @@ trait CompilesConditionals
     }
 
     /**
-     * Compile the has-stack statements into valid PHP.
-     *
-     * @param  string  $expression
-     * @return string
-     */
-    protected function compileHasStack($expression)
-    {
-        return "<?php if (! \$__env->isStackEmpty{$expression}): ?>";
-    }
-
-    /**
      * Compile the section-missing statements into valid PHP.
      *
      * @param  string  $expression
@@ -317,14 +306,14 @@ trait CompilesConditionals
     }
 
     /**
-     * Compile a boolean value into a raw true / false value for embedding into HTML attributes or JavaScript.
+     * Compile a selected block into valid PHP.
      *
-     * @param  bool  $condition
+     * @param  string  $condition
      * @return string
      */
-    protected function compileBool($condition)
+    protected function compileSelected($condition)
     {
-        return "<?php echo ($condition ? 'true' : 'false'); ?>";
+        return "<?php if{$condition}: echo 'selected'; endif; ?>";
     }
 
     /**
@@ -372,17 +361,6 @@ trait CompilesConditionals
     }
 
     /**
-     * Compile a selected block into valid PHP.
-     *
-     * @param  string  $condition
-     * @return string
-     */
-    protected function compileSelected($condition)
-    {
-        return "<?php if{$condition}: echo 'selected'; endif; ?>";
-    }
-
-    /**
      * Compile the push statements into valid PHP.
      *
      * @param  string  $expression
@@ -390,16 +368,7 @@ trait CompilesConditionals
      */
     protected function compilePushIf($expression)
     {
-        $parts = explode(',', $this->stripParentheses($expression));
-
-        if (count($parts) > 2) {
-            $last = array_pop($parts);
-
-            $parts = [
-                implode(',', $parts),
-                trim($last),
-            ];
-        }
+        $parts = explode(',', $this->stripParentheses($expression), 2);
 
         return "<?php if({$parts[0]}): \$__env->startPush({$parts[1]}); ?>";
     }

@@ -11,6 +11,7 @@ class PendingMailFake extends PendingMail
      * Create a new instance.
      *
      * @param  \Illuminate\Support\Testing\Fakes\MailFake  $mailer
+     * @return void
      */
     public function __construct($mailer)
     {
@@ -26,17 +27,6 @@ class PendingMailFake extends PendingMail
     public function send(Mailable $mailable)
     {
         $this->mailer->send($this->fill($mailable));
-    }
-
-    /**
-     * Send a new mailable message instance synchronously.
-     *
-     * @param  \Illuminate\Contracts\Mail\Mailable  $mailable
-     * @return void
-     */
-    public function sendNow(Mailable $mailable)
-    {
-        $this->mailer->sendNow($this->fill($mailable));
     }
 
     /**

@@ -4,14 +4,13 @@ namespace Illuminate\Database\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
-use Illuminate\Console\Prohibitable;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputOption;
 
 #[AsCommand(name: 'db:wipe')]
 class WipeCommand extends Command
 {
-    use ConfirmableTrait, Prohibitable;
+    use ConfirmableTrait;
 
     /**
      * The console command name.
@@ -34,9 +33,8 @@ class WipeCommand extends Command
      */
     public function handle()
     {
-        if ($this->isProhibited() ||
-            ! $this->confirmToProceed()) {
-            return Command::FAILURE;
+        if (! $this->confirmToProceed()) {
+            return 1;
         }
 
         $database = $this->input->getOption('database');
@@ -57,8 +55,6 @@ class WipeCommand extends Command
             $this->components->info('Dropped all types successfully.');
         }
 
-        $this->flushDatabaseConnection($database);
-
         return 0;
     }
 
@@ -71,8 +67,8 @@ class WipeCommand extends Command
     protected function dropAllTables($database)
     {
         $this->laravel['db']->connection($database)
-            ->getSchemaBuilder()
-            ->dropAllTables();
+                    ->getSchemaBuilder()
+                    ->dropAllTables();
     }
 
     /**
@@ -84,8 +80,8 @@ class WipeCommand extends Command
     protected function dropAllViews($database)
     {
         $this->laravel['db']->connection($database)
-            ->getSchemaBuilder()
-            ->dropAllViews();
+                    ->getSchemaBuilder()
+                    ->dropAllViews();
     }
 
     /**
@@ -97,19 +93,8 @@ class WipeCommand extends Command
     protected function dropAllTypes($database)
     {
         $this->laravel['db']->connection($database)
-            ->getSchemaBuilder()
-            ->dropAllTypes();
-    }
-
-    /**
-     * Flush the given database connection.
-     *
-     * @param  string  $database
-     * @return void
-     */
-    protected function flushDatabaseConnection($database)
-    {
-        $this->laravel['db']->connection($database)->disconnect();
+                    ->getSchemaBuilder()
+                    ->dropAllTypes();
     }
 
     /**

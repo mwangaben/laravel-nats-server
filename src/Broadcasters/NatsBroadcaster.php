@@ -2,8 +2,10 @@
 
 namespace Mwangaben\NatsBroadcaster\Broadcasters;
 
-use Basis\Nats\Client;
-use Basis\Nats\Configuration;
+//use Nats\Client;
+//use Nats\ConnectionOptions;
+use Mwangaben\NatsBroadcaster\Nats\PatchedClient;
+
 use Illuminate\Broadcasting\Broadcasters\Broadcaster;
 use Illuminate\Broadcasting\Broadcasters\UsePusherChannelConventions;
 use Illuminate\Support\Arr;
@@ -15,7 +17,7 @@ class NatsBroadcaster extends Broadcaster
 {
     use UsePusherChannelConventions;
 
-    protected Client $client;
+    protected PatchedClient $client;
     protected array $config;
     protected array $subscriptions = [];
     protected bool $debug;
@@ -26,22 +28,51 @@ class NatsBroadcaster extends Broadcaster
         $this->config = $config;
         $this->debug = $config['debug'] ?? false;
 
-        // Ensure port is integer
-        $port = isset($config['port']) ? (int) $config['port'] : 4222;
-        
-        $configuration = new Configuration([
+        // Create connection options
+//        $options = new ConnectionOptions();
+//        $options->setHost($config['host'] ?? 'localhost');
+//        $options->setPort($config['port'] ?? 4222);
+//
+//        if (isset($config['user']) && isset($config['pass'])) {
+//            $options->setUser($config['user']);
+//            $options->setPass($config['pass']);
+//        }
+//
+//        if (isset($config['token'])) {
+//            $options->setToken($config['token']);
+//        }
+//
+//        $options->setReconnect($config['reconnect'] ?? true);
+//        $options->setTimeout($config['timeout'] ?? 5);
+//        $options->setVerbose($this->debug);
+//
+//        // TLS Configuration
+//        if ($config['tls'] ?? false) {
+//            $options->setSecure(true);
+//            if (isset($config['tls_cert'])) {
+//                $options->setCertFile($config['tls_cert']);
+//            }
+//            if (isset($config['tls_key'])) {
+//                $options->setKeyFile($config['tls_key']);
+//            }
+//            if (isset($config['tls_ca'])) {
+//                $options->setCaFile($config['tls_ca']);
+//            }
+//        }
+//
+//        $this->client = new Client($options);
+
+        $clientConfig = [
             'host' => $config['host'] ?? 'localhost',
-            'port' => $port,
+            'port' => $config['port'] ?? 4222,
             'user' => $config['user'] ?? null,
             'pass' => $config['pass'] ?? null,
             'token' => $config['token'] ?? null,
-            'reconnect' => $config['reconnect'] ?? true,
-            'timeout' => isset($config['timeout']) ? (int) $config['timeout'] : 5,
-            'verbose' => $this->debug,
-            'lang' => 'php',
-        ]);
+            'timeout' => $config['timeout'] ?? 5,
+            'debug' => $this->debug,
+        ];
 
-        $this->client = new Client($configuration);
+        $this->client = new PatchedClient($clientConfig);
     }
 
     public function auth($request)
@@ -125,7 +156,7 @@ class NatsBroadcaster extends Broadcaster
 
         foreach ($channels as $channel) {
             $subject = $this->getSubjectFromChannel($channel);
-            
+
             $message = [
                 'event' => $event,
                 'data' => $payload,
@@ -134,7 +165,7 @@ class NatsBroadcaster extends Broadcaster
                 'timestamp' => now()->toISOString(),
             ];
 
-            if ($this->debug) {
+            if ($this->debug && class_exists('Log')) {
                 \Log::info('NATS Broadcasting', [
                     'subject' => $subject,
                     'message' => $message
@@ -145,14 +176,14 @@ class NatsBroadcaster extends Broadcaster
                 $this->client->publish($subject, json_encode($message));
             } catch (Exception $e) {
                 report($e);
-                
+
                 if ($this->debug) {
                     \Log::error('NATS Broadcast failed', [
                         'error' => $e->getMessage(),
                         'subject' => $subject
                     ]);
                 }
-                
+
                 // Try to reconnect and resend
                 try {
                     $this->reconnect();
@@ -192,17 +223,17 @@ class NatsBroadcaster extends Broadcaster
         try {
             $this->client->connect();
             $this->connected = true;
-            
-            if ($this->debug) {
+
+            if ($this->debug && class_exists('Log')) {
                 \Log::info('NATS Connected successfully');
             }
         } catch (Exception $e) {
             report($e);
-            
+
             if ($this->debug) {
                 \Log::error('NATS Connection failed', ['error' => $e->getMessage()]);
             }
-            
+
             throw $e;
         }
     }
@@ -219,8 +250,8 @@ class NatsBroadcaster extends Broadcaster
             try {
                 $this->client->close();
                 $this->connected = false;
-                
-                if ($this->debug) {
+
+                if ($this->debug && class_exists('Log')) {
                     \Log::info('NATS Disconnected');
                 }
             } catch (Exception $e) {
@@ -229,7 +260,7 @@ class NatsBroadcaster extends Broadcaster
         }
     }
 
-    public function getClient(): Client
+    public function getClient(): PatchedClient
     {
         return $this->client;
     }
@@ -246,8 +277,7 @@ class NatsBroadcaster extends Broadcaster
         }
 
         try {
-            $subscription = $this->client->subscribe($subject);
-            $subscription->handler(function ($message) use ($handler) {
+            $subscription = $this->client->subscribe($subject, function ($message) use ($handler) {
                 try {
                     $data = json_decode($message->getBody(), true);
                     $handler($data);
@@ -255,20 +285,20 @@ class NatsBroadcaster extends Broadcaster
                     if ($this->debug) {
                         \Log::error('NATS Message handler error', [
                             'error' => $e->getMessage(),
-                            'subject' => $subject
+                            'subject' => $message->getSubject()
                         ]);
                     }
                 }
             });
 
             $this->subscriptions[$subject] = $subscription;
-            
+
             if ($this->debug) {
                 \Log::info('NATS Subscribed to subject', ['subject' => $subject]);
             }
         } catch (Exception $e) {
             report($e);
-            
+
             if ($this->debug) {
                 \Log::error('NATS Subscription failed', [
                     'error' => $e->getMessage(),
@@ -282,9 +312,9 @@ class NatsBroadcaster extends Broadcaster
     {
         if (isset($this->subscriptions[$subject])) {
             try {
-                $this->subscriptions[$subject]->unsubscribe();
+                $this->client->unsubscribe($this->subscriptions[$subject]);
                 unset($this->subscriptions[$subject]);
-                
+
                 if ($this->debug) {
                     \Log::info('NATS Unsubscribed from subject', ['subject' => $subject]);
                 }

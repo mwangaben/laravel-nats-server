@@ -39,7 +39,7 @@ class ValidationException extends Exception
     /**
      * The path the client should be redirected to.
      *
-     * @var string|null
+     * @var string
      */
     public $redirectTo;
 
@@ -49,6 +49,7 @@ class ValidationException extends Exception
      * @param  \Illuminate\Contracts\Validation\Validator  $validator
      * @param  \Symfony\Component\HttpFoundation\Response|null  $response
      * @param  string  $errorBag
+     * @return void
      */
     public function __construct($validator, $response = null, $errorBag = 'default')
     {
@@ -95,7 +96,7 @@ class ValidationException extends Exception
         if ($count = count($messages)) {
             $pluralized = $count === 1 ? 'error' : 'errors';
 
-            $message .= ' '.$validator->getTranslator()->choice("(and :count more $pluralized)", $count, compact('count'));
+            $message .= ' '.$validator->getTranslator()->get("(and :count more $pluralized)", compact('count'));
         }
 
         return $message;

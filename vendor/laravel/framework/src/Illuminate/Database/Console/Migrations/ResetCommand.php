@@ -2,17 +2,13 @@
 
 namespace Illuminate\Database\Console\Migrations;
 
-use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
-use Illuminate\Console\Prohibitable;
 use Illuminate\Database\Migrations\Migrator;
-use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputOption;
 
-#[AsCommand(name: 'migrate:reset')]
 class ResetCommand extends BaseCommand
 {
-    use ConfirmableTrait, Prohibitable;
+    use ConfirmableTrait;
 
     /**
      * The console command name.
@@ -39,6 +35,7 @@ class ResetCommand extends BaseCommand
      * Create a new migration rollback command instance.
      *
      * @param  \Illuminate\Database\Migrations\Migrator  $migrator
+     * @return void
      */
     public function __construct(Migrator $migrator)
     {
@@ -54,9 +51,8 @@ class ResetCommand extends BaseCommand
      */
     public function handle()
     {
-        if ($this->isProhibited() ||
-            ! $this->confirmToProceed()) {
-            return Command::FAILURE;
+        if (! $this->confirmToProceed()) {
+            return 1;
         }
 
         return $this->migrator->usingConnection($this->option('database'), function () {

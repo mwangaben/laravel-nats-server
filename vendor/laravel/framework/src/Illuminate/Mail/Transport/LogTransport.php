@@ -4,13 +4,12 @@ namespace Illuminate\Mail\Transport;
 
 use Illuminate\Support\Str;
 use Psr\Log\LoggerInterface;
-use Stringable;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Component\Mime\RawMessage;
 
-class LogTransport implements Stringable, TransportInterface
+class LogTransport implements TransportInterface
 {
     /**
      * The Logger instance.
@@ -23,6 +22,7 @@ class LogTransport implements Stringable, TransportInterface
      * Create a new log transport instance.
      *
      * @param  \Psr\Log\LoggerInterface  $logger
+     * @return void
      */
     public function __construct(LoggerInterface $logger)
     {

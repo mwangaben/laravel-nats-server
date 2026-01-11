@@ -8,12 +8,38 @@
       "Mwangaben\\NatsBroadcaster\\": "src/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Mwangaben\\NatsBroadcaster\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "vendor/bin/phpunit",
+    "test-coverage": "vendor/bin/phpunit --coverage-html coverage",
+    "test-nats": "nats server run & sleep 3 && vendor/bin/phpunit && pkill -f 'nats server'",
+    "test-nats-ci": "START_NATS_FOR_TESTS=true vendor/bin/phpunit",
+    "test-unit": "vendor/bin/phpunit --testsuite Unit",
+    "test-feature": "vendor/bin/phpunit --testsuite Feature",
+    "test-integration": "START_NATS_FOR_TESTS=true vendor/bin/phpunit --testsuite Integration",
+    "test-console": "vendor/bin/phpunit --testsuite Console",
+    "test-all": "START_NATS_FOR_TESTS=true vendor/bin/phpunit",
+    "nats-server-start": "nats server run",
+    "nats-server-stop": "pkill -f 'nats server'",
+    "nats-server-restart": "pkill -f 'nats server' && sleep 2 && nats server run",
+    "test-connection": "php -r \"require 'vendor/autoload.php'; \\$config = ['host'=>'localhost','port'=>53969,'user'=>'local','pass'=>'4elDZZTb7ofiN83BKjXOvhZvOuhUouhH','debug'=>true]; \\$client = new \\Mwangaben\\Nats\\Client(new \\Mwangaben\\Nats\\ConnectionOptions(\\$config)); \\$client->connect(); echo '✅ Connected to NATS server on port 53969\\n';\""
+  },
   "require": {
     "php": "^8.2",
     "laravel/framework": "^10.0|^11.0|^12.0",
-    "basis-company/nats": "^1.0",
+    "mwangaben/nats-php-client": "^1.0",
     "ext-json": "*",
     "ext-openssl": "*"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^7.0|^8.0",
+    "phpunit/phpunit": "^10.0",
+    "mockery/mockery": "^1.6",
+    "symfony/process": "^7.0"
   },
   "suggest": {
     "ext-rdkafka": "For Kafka support with NATS JetStream",

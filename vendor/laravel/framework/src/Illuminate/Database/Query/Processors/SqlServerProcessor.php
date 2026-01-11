@@ -55,7 +55,27 @@ class SqlServerProcessor extends Processor
         return is_object($row) ? $row->insertid : $row['insertid'];
     }
 
-    /** @inheritDoc */
+    /**
+     * Process the results of a column listing query.
+     *
+     * @deprecated Will be removed in a future Laravel version.
+     *
+     * @param  array  $results
+     * @return array
+     */
+    public function processColumnListing($results)
+    {
+        return array_map(function ($result) {
+            return ((object) $result)->name;
+        }, $results);
+    }
+
+    /**
+     * Process the results of a columns query.
+     *
+     * @param  array  $results
+     * @return array
+     */
     public function processColumns($results)
     {
         return array_map(function ($result) {
@@ -77,15 +97,16 @@ class SqlServerProcessor extends Processor
                 'default' => $result->default,
                 'auto_increment' => (bool) $result->autoincrement,
                 'comment' => $result->comment,
-                'generation' => $result->expression ? [
-                    'type' => $result->persisted ? 'stored' : 'virtual',
-                    'expression' => $result->expression,
-                ] : null,
             ];
         }, $results);
     }
 
-    /** @inheritDoc */
+    /**
+     * Process the results of an indexes query.
+     *
+     * @param  array  $results
+     * @return array
+     */
     public function processIndexes($results)
     {
         return array_map(function ($result) {
@@ -93,7 +114,7 @@ class SqlServerProcessor extends Processor
 
             return [
                 'name' => strtolower($result->name),
-                'columns' => $result->columns ? explode(',', $result->columns) : [],
+                'columns' => explode(',', $result->columns),
                 'type' => strtolower($result->type),
                 'unique' => (bool) $result->unique,
                 'primary' => (bool) $result->primary,
@@ -101,7 +122,12 @@ class SqlServerProcessor extends Processor
         }, $results);
     }
 
-    /** @inheritDoc */
+    /**
+     * Process the results of a foreign keys query.
+     *
+     * @param  array  $results
+     * @return array
+     */
     public function processForeignKeys($results)
     {
         return array_map(function ($result) {

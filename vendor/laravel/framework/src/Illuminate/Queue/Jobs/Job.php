@@ -67,7 +67,7 @@ abstract class Job
     /**
      * Get the job identifier.
      *
-     * @return string|int|null
+     * @return string
      */
     abstract public function getJobId();
 
@@ -197,17 +197,13 @@ abstract class Job
             in_array(Batchable::class, class_uses_recursive($commandName))) {
             $batchRepository = $this->resolve(BatchRepository::class);
 
-            try {
-                $batchRepository->rollBack();
-            } catch (Throwable $e) {
-                // ...
+            if (method_exists($batchRepository, 'rollBack')) {
+                try {
+                    $batchRepository->rollBack();
+                } catch (Throwable $e) {
+                    // ...
+                }
             }
-        }
-
-        if ($this->shouldRollBackDatabaseTransaction($e)) {
-            $this->container->make('db')
-                ->connection($this->container['config']['queue.failed.database'])
-                ->rollBack(toLevel: 0);
         }
 
         try {
@@ -225,20 +221,6 @@ abstract class Job
     }
 
     /**
-     * Determine if the current database transaction should be rolled back to level zero.
-     *
-     * @param  \Throwable  $e
-     * @return bool
-     */
-    protected function shouldRollBackDatabaseTransaction($e)
-    {
-        return $e instanceof TimeoutExceededException &&
-            $this->container['config']['queue.failed.database'] &&
-            in_array($this->container['config']['queue.failed.driver'], ['database', 'database-uuids']) &&
-            $this->container->bound('db');
-    }
-
-    /**
      * Process an exception that caused the job to fail.
      *
      * @param  \Throwable|null  $e
@@ -248,10 +230,10 @@ abstract class Job
     {
         $payload = $this->payload();
 
-        [$class] = JobName::parse($payload['job']);
+        [$class, $method] = JobName::parse($payload['job']);
 
         if (method_exists($this->instance = $this->resolve($class), 'failed')) {
-            $this->instance->failed($payload['data'], $e, $payload['uuid'] ?? '', $this);
+            $this->instance->failed($payload['data'], $e, $payload['uuid'] ?? '');
         }
     }
 
@@ -357,7 +339,7 @@ abstract class Job
     }
 
     /**
-     * Get the resolved display name of the queued job class.
+     * Get the resolved name of the queued job class.
      *
      * Resolves the name of "wrapped" jobs such as class-based handlers.
      *
@@ -366,18 +348,6 @@ abstract class Job
     public function resolveName()
     {
         return JobName::resolve($this->getName(), $this->payload());
-    }
-
-    /**
-     * Get the class of the queued job.
-     *
-     * Resolves the class of "wrapped" jobs such as class-based handlers.
-     *
-     * @return string
-     */
-    public function resolveQueuedJobClass()
-    {
-        return JobName::resolveClassName($this->getName(), $this->payload());
     }
 
     /**
