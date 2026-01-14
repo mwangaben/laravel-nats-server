@@ -1,5 +1,8 @@
 <?php
 
+//src/Facades/NatsBroadcaster.php
+
+
 namespace Mwangaben\NatsBroadcaster\Facades;
 
 use Illuminate\Support\Facades\Facade;

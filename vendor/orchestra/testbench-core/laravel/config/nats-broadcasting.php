@@ -19,9 +19,9 @@ return [
             'verbose' => env('NATS_VERBOSE', false),
             'pedantic' => env('NATS_PEDANTIC', false),
 
-            // FIX: Change this to use NATS_TLS (common name) instead of NATS_TLS_ENABLED
+            // TLS/SSL Configuration
             'tls' => [
-                'enabled' => env('NATS_TLS', env('NATS_TLS_ENABLED', false)), // Support both
+                'enabled' => env('NATS_TLS_ENABLED', false),
                 'cert_file' => env('NATS_TLS_CERT_FILE'),
                 'key_file' => env('NATS_TLS_KEY_FILE'),
                 'ca_file' => env('NATS_TLS_CA_FILE'),
@@ -43,7 +43,6 @@ return [
             'consumer' => env('NATS_CONSUMER', 'broadcast-consumer'),
         ],
     ],
-
 
     'options' => [
         'queue' => env('NATS_QUEUE', 'default'),

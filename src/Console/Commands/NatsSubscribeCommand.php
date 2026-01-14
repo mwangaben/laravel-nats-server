@@ -1,4 +1,5 @@
 <?php
+//src/Console/Commands/NatsSubscribeCommand.php
 
 namespace Mwangaben\NatsBroadcaster\Console\Commands;
 
@@ -7,6 +8,44 @@ use Mwangaben\NatsBroadcaster\Broadcasters\NatsBroadcaster;
 
 class NatsSubscribeCommand extends Command
 {
+//    protected $signature = 'nats:subscribe
+//                            {subject : Subject to subscribe to}
+//                            {--queue= : Queue group name}
+//                            {--limit=0 : Maximum messages to receive (0 for unlimited)}';
+//
+//    protected $description = 'Subscribe to NATS subjects and listen for messages';
+
+//    public function handle(NatsBroadcaster $broadcaster): void
+//    {
+//        $subject = $this->argument('subject');
+//        $queue = $this->option('queue');
+//        $limit = (int) $this->option('limit');
+//
+//        $this->info("Subscribing to subject: {$subject}");
+//        if ($queue) {
+//            $this->info("Queue group: {$queue}");
+//        }
+//
+//        $messageCount = 0;
+//
+//        $broadcaster->subscribe($subject, function ($message) use (&$messageCount, $limit) {
+//            $this->handleMessage($message);
+//            $messageCount++;
+//
+//            if ($limit > 0 && $messageCount >= $limit) {
+//                $this->info("Received {$limit} messages. Exiting...");
+//                exit(0);
+//            }
+//        });
+//
+//        $this->info('Listening for messages. Press Ctrl+C to stop.');
+//
+//        // Keep the script running
+//        while (true) {
+//            sleep(1);
+//        }
+//    }
+
     protected $signature = 'nats:subscribe
                             {subject : Subject to subscribe to}
                             {--queue= : Queue group name}
@@ -14,7 +53,7 @@ class NatsSubscribeCommand extends Command
 
     protected $description = 'Subscribe to NATS subjects and listen for messages';
 
-    public function handle(NatsBroadcaster $broadcaster): void
+    public function handle(): void
     {
         $subject = $this->argument('subject');
         $queue = $this->option('queue');
@@ -26,6 +65,9 @@ class NatsSubscribeCommand extends Command
         }
 
         $messageCount = 0;
+
+        // Get broadcaster instance
+        $broadcaster = app(NatsBroadcaster::class);
 
         $broadcaster->subscribe($subject, function ($message) use (&$messageCount, $limit) {
             $this->handleMessage($message);

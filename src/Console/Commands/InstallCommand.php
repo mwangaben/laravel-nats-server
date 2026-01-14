@@ -1,4 +1,6 @@
 <?php
+//src/Console/Commands/InstallCommand.php
+
 
 namespace Mwangaben\NatsBroadcaster\Console\Commands;
 
@@ -37,6 +39,52 @@ class InstallCommand extends Command
         $this->info('NATS Broadcaster installed successfully!');
     }
 
+//    protected function updateEnvFile(): void
+//    {
+//        $envPath = base_path('.env');
+//
+//        if (!File::exists($envPath)) {
+//            $this->warn('.env file not found. Skipping environment variable updates.');
+//            return;
+//        }
+//
+//        $envContent = File::get($envPath);
+//        $envUpdates = [];
+//
+//        // Check which variables need to be added
+//        $variables = [
+//            'BROADCAST_CONNECTION' => 'nats',
+//            'NATS_HOST' => 'localhost',
+//            'NATS_PORT' => '4222',
+//            'NATS_USER' => '',
+//            'NATS_PASS' => '',
+//            'NATS_TOKEN' => '',
+//            'NATS_PREFIX' => 'app',
+//            'NATS_DEBUG' => 'false',
+//            'NATS_RECONNECT' => 'true',
+//            'NATS_TIMEOUT' => '5',
+//            'NATS_TLS' => 'false',
+//            'NATS_JETSTREAM' => 'false',
+//        ];
+//
+//        foreach ($variables as $key => $defaultValue) {
+//            if (!preg_match("/^{$key}=/m", $envContent)) {
+//                $value = $this->ask("Enter value for {$key} [{$defaultValue}]", $defaultValue);
+//                $envUpdates[] = "{$key}={$value}";
+//            }
+//        }
+//
+//        if (!empty($envUpdates)) {
+//            $envContent .= PHP_EOL . '# NATS Broadcasting' . PHP_EOL;
+//            $envContent .= implode(PHP_EOL, $envUpdates);
+//
+//            File::put($envPath, $envContent);
+//            $this->info('Environment variables updated.');
+//        } else {
+//            $this->info('All NATS environment variables already configured.');
+//        }
+//    }
+
     protected function updateEnvFile(): void
     {
         $envPath = base_path('.env');
@@ -49,7 +97,7 @@ class InstallCommand extends Command
         $envContent = File::get($envPath);
         $envUpdates = [];
 
-        // Check which variables need to be added
+        // Updated variables including TLS settings
         $variables = [
             'BROADCAST_CONNECTION' => 'nats',
             'NATS_HOST' => 'localhost',
@@ -61,14 +109,29 @@ class InstallCommand extends Command
             'NATS_DEBUG' => 'false',
             'NATS_RECONNECT' => 'true',
             'NATS_TIMEOUT' => '5',
-            'NATS_TLS' => 'false',
+
+            // TLS Configuration
+            'NATS_TLS_ENABLED' => 'false',
+            'NATS_TLS_CERT_FILE' => '',
+            'NATS_TLS_KEY_FILE' => '',
+            'NATS_TLS_CA_FILE' => '',
+            'NATS_TLS_VERIFY_PEER' => 'true',
+            'NATS_TLS_VERIFY_PEER_NAME' => 'true',
+            'NATS_TLS_ALLOW_SELF_SIGNED' => 'false',
+
+            // JetStream
             'NATS_JETSTREAM' => 'false',
         ];
 
         foreach ($variables as $key => $defaultValue) {
             if (!preg_match("/^{$key}=/m", $envContent)) {
-                $value = $this->ask("Enter value for {$key} [{$defaultValue}]", $defaultValue);
-                $envUpdates[] = "{$key}={$value}";
+                if (in_array($key, ['NATS_TLS_CERT_FILE', 'NATS_TLS_KEY_FILE', 'NATS_TLS_CA_FILE'])) {
+                    // Skip asking for TLS file paths during install
+                    $envUpdates[] = "{$key}={$defaultValue}";
+                } else {
+                    $value = $this->ask("Enter value for {$key} [{$defaultValue}]", $defaultValue);
+                    $envUpdates[] = "{$key}={$value}";
+                }
             }
         }
 
