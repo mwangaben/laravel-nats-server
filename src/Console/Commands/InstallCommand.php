@@ -39,51 +39,6 @@ class InstallCommand extends Command
         $this->info('NATS Broadcaster installed successfully!');
     }
 
-//    protected function updateEnvFile(): void
-//    {
-//        $envPath = base_path('.env');
-//
-//        if (!File::exists($envPath)) {
-//            $this->warn('.env file not found. Skipping environment variable updates.');
-//            return;
-//        }
-//
-//        $envContent = File::get($envPath);
-//        $envUpdates = [];
-//
-//        // Check which variables need to be added
-//        $variables = [
-//            'BROADCAST_CONNECTION' => 'nats',
-//            'NATS_HOST' => 'localhost',
-//            'NATS_PORT' => '4222',
-//            'NATS_USER' => '',
-//            'NATS_PASS' => '',
-//            'NATS_TOKEN' => '',
-//            'NATS_PREFIX' => 'app',
-//            'NATS_DEBUG' => 'false',
-//            'NATS_RECONNECT' => 'true',
-//            'NATS_TIMEOUT' => '5',
-//            'NATS_TLS' => 'false',
-//            'NATS_JETSTREAM' => 'false',
-//        ];
-//
-//        foreach ($variables as $key => $defaultValue) {
-//            if (!preg_match("/^{$key}=/m", $envContent)) {
-//                $value = $this->ask("Enter value for {$key} [{$defaultValue}]", $defaultValue);
-//                $envUpdates[] = "{$key}={$value}";
-//            }
-//        }
-//
-//        if (!empty($envUpdates)) {
-//            $envContent .= PHP_EOL . '# NATS Broadcasting' . PHP_EOL;
-//            $envContent .= implode(PHP_EOL, $envUpdates);
-//
-//            File::put($envPath, $envContent);
-//            $this->info('Environment variables updated.');
-//        } else {
-//            $this->info('All NATS environment variables already configured.');
-//        }
-//    }
 
     protected function updateEnvFile(): void
     {

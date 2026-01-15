@@ -69,47 +69,6 @@ class PatchedClient
         }
     }
 
-//    private function configureTls(): void
-//    {
-//        $sslOptions = [
-//            'verify_peer' => $this->tlsConfig['verify_peer'] ?? false,
-//            'verify_peer_name' => $this->tlsConfig['verify_peer_name'] ?? false,
-//            'allow_self_signed' => $this->tlsConfig['allow_self_signed'] ?? true,
-//            'peer_name' => $this->host, // Important for SNI
-//        ];
-//
-//        // Add CA file if specified
-//        if (!empty($this->tlsConfig['ca_file']) && file_exists($this->tlsConfig['ca_file'])) {
-//            $sslOptions['cafile'] = $this->tlsConfig['ca_file'];
-//        } else {
-//            // Try system CA bundles
-//            $systemCAs = [
-//                '/etc/ssl/certs/ca-certificates.crt',
-//                '/etc/pki/tls/certs/ca-bundle.crt',
-//                '/usr/local/etc/openssl/cert.pem',
-//                '/etc/ssl/cert.pem',
-//            ];
-//            foreach ($systemCAs as $caFile) {
-//                if (file_exists($caFile)) {
-//                    $sslOptions['cafile'] = $caFile;
-//                    break;
-//                }
-//            }
-//        }
-//
-//        // Add tls_context options
-//        if (!empty($this->tlsContext)) {
-//            $sslOptions = array_merge($sslOptions, $this->tlsContext);
-//        }
-//
-//        // Set context options
-//        stream_context_set_option($this->streamContext, ['ssl' => $sslOptions]);
-//
-//        if ($this->debug) {
-//            error_log("[NATS] SSL options configured");
-//        }
-//    }
-
 
     private function configureTls(): void
     {
