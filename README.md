@@ -16,4 +16,5 @@ A NATS broadcasting driver for Laravel with full Laravel Echo compatibility.
 ## Installation
 
 ```bash
-composer require mwangaben/laravel-nats-server
+composer require mwangaben/laravel-nats-server' 
+```
